@@ -580,8 +580,14 @@ class Jarvis:
 
 
 
-        # ---- EXPLICIT SELF-EVOLUTION LEARNING TRIGGER ----
+        # ---- AVENGERS ASSEMBLE PROTOCOL (FULL SYSTEM DIAGNOSTICS) ----
         clean_lower = text.strip().lower()
+        if any(w in clean_lower for w in ("avengers assemble", "avenger assemble", "avengers ready", "assemble avengers", "system diagnostics", "all systems check", "system health check")):
+            import avengers_protocol
+            avengers_protocol.protocol.execute_assemble_protocol(voice=self.voice, ai=self.ai, gui=self.gui)
+            return True
+
+        # ---- EXPLICIT SELF-EVOLUTION LEARNING TRIGGER ----
         if any(w in clean_lower for w in ("naya skill seekho", "naya feature seekho", "ye kaam seekh lo", "ye automate karo", "naya skill banao", "seekh lo")):
             self_evolution_engine.evolution_engine.triage_missing_skill(text)
             return True
