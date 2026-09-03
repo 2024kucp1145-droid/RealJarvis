@@ -1,0 +1,17 @@
+╔══════════════════════════════════════════════╗
+║     JARVIS FEATURE PROPOSAL                  ║
+║     Request: naya feature add karo                    ║
+║     Generated: 2026-08-24_09-17-15                ║
+╚══════════════════════════════════════════════╝
+
+Arre Piyush, naya feature add karna hai toh main bilkul taiyar hoon! Main abhi config aur main file me zaroori changes ki list bana deti hoon.
+
+════════════════════════════════════════════════
+HOW TO APPLY:
+1. Upad diye gaye code ko carefully review karo
+2. Existing files mein changes copy-paste karo
+3. Nayi files banayein agar bataya gaya ho
+4. Commands add karo command_data.py mein
+5. python main.py dobara chalao test karne ke liye
+
+SAFETY: Ye sirf proposal hai. Koi existing file change nahi hui.

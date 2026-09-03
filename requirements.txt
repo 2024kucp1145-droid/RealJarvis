@@ -1,0 +1,47 @@
+# Real Jarvis - dependencies
+# Install with: pip install -r requirements.txt
+
+pyttsx3               # offline Hindi/female TTS (Windows SAPI5 voices)
+pywin32                 # Windows COM handling (TTS crash fix)
+edge-tts               # online natural Hindi female voice (better quality)
+playsound==1.2.2       # play the online voice's mp3 output
+pygame                    # interruptible audio playback (barge-in feature)
+SpeechRecognition       # speech-to-text (mic listening)
+PyAudio                 # microphone access (needed by SpeechRecognition)
+pocketsphinx             # offline speech recognition fallback
+
+sounddevice              # clap detection (mic amplitude monitoring)
+numpy                    # numeric processing for clap detection
+
+screen-brightness-control  # brightness control
+pycaw                     # volume control
+comtypes                  # required by pycaw
+psutil                    # RAM / storage / battery info
+keyboard                  # simulate keyboard shortcuts
+
+opencv-python             # webcam access for face verification
+face_recognition           # face matching (needs dlib + cmake to build on Windows)
+
+pywhatkit==5.4                 # YouTube search & autoplay
+pyautogui                  # screen capture aur cursor position (vision feature)
+mediapipe                  # eye-cursor control (webcam se gaze/blink track karna)
+
+Pillow                    # glossy robot art banane ke liye (PIL gradients)
+
+anthropic                  # Claude AI - natural conversation (paid, optional)
+google-genai                # Google Gemini AI - natural conversation (FREE, recommended)
+
+selenium==4.15.0
+webdriver-manager==4.0.1
+beautifulsoup4==4.12.2
+
+tkinterdnd2              # drag & drop support
+PyPDF2                   # PDF text extraction
+python-docx              # Word files
+pandas                   # Excel/CSV
+openpyxl                 # Excel engine
+windnd
+moviepy                 # video se audio nikaalna
+openai-whisper          # audio transcribe (local, free)
+fpdf2                   # PDF banana
+imageio[ffmpeg]         # ffmpeg backend (moviepy ke saath)

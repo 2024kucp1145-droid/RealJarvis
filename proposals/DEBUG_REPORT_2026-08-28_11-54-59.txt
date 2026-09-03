@@ -1,0 +1,33 @@
+╔══════════════════════════════════════════════╗
+║     JARVIS SELF-DEBUG REPORT                 ║
+║     Generated: 2026-08-28_11-54-59                ║
+║     Files Scanned: 71                          ║
+╚══════════════════════════════════════════════╝
+
+Ji Debu, maine aapke Jarvis project ki files ka analysis kar liya hai. Yeh lijiye aapke project ke liye detailed report:
+
+###ANALYSIS###
+File: voice.py
+- Line ~350: Sphinx offline recognition fallback bina proper error handling ke fail ho sakta hai agar library missing ho.
+- Suggested fix: Try-except block me `ModuleNotFoundError` ko explicitly catch karke clean log return karein.
+
+File: ai_brain.py
+- Line ~1100: Gemini response parsing me agar `STATUS:` ya `LANGUAGE:` missing ho toh code unknown return karta hai bina default fallback ke.
+- Suggested fix: Default values ko pehle se define karke safe unpacking use karein.
+
+File: gui.py
+- Line ~450: Listbox selection event me bounds checking missing hai agar list empty ho.
+- Suggested fix: `if not sel: return` add karein jo already kuch jagah hai, use har event handler me ensure karein.
+
+###CRITICAL_ISSUES###
+1. Thread safety in GUI: `tkinter` main thread ke alawa background threads se direct update hone par crash ho sakta hai, iske liye `queue.Queue` ka proper use ensure karein.
+2. API Key handling: Config ya environment variables me missing API keys ke liye graceful fallback messages hone chahiye taaki app startup par crash na ho.
+
+###IMPROVEMENTS###
+1. Voice recognition ke liye Whisper API integration add kar sakte hain better offline/online accuracy ke liye.
+2. AST safety scanner me custom whitelist mechanism add kiya ja sakta hai trusted dynamic execution ke
+
+════════════════════════════════════════════════
+SAFETY NOTE: Ye sirf READ-ONLY report hai.
+Koi file automatically change nahi hui.
+Manual review ke baad hi changes apply karein.

@@ -1,0 +1,37 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.bak
+
+# Chrome Browser Data & Local Profiles
+data/
+data/chrome_whatsapp_profile/
+*.log
+
+# Sensitive Local Data & Credentials
+.env
+owner_face.jpg
+jarvis_memory.db
+*.db-journal
+
+# Operating System & IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary Audio / Screenshots
+*.mp3
+*.wav
+*.tmp
+temp/
+scratch/
