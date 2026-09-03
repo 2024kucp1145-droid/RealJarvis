@@ -1,0 +1,15 @@
+JARVIS AGENTIC DEBUG REPORT [2026-09-03_13-27-33]
+
+Ji, mainne codebase ka quick analysis kar liya hai. Aaiye dekhte hain kya issues hain!
+
+###ANALYSIS###
+- File: main.py -> Sabhi modules safe imports ke andar hain, par error handling aur graceful degradation ko kuch background threads me aur behtar banaya ja sakta hai.
+- File: voice.py -> PyAudio/SoundDevice missing hone par OSError catch hota hai, lekin edge-tts aur pyttsx3 ke fallback me timeout handling aur robust honi chahiye.
+- File: ai_brain.py -> Google GenAI aur Anthropic SDK imports try-except me hain, par API failure ya network timeout ke waqt fallback response thoda aur seamless ho sakta hai.
+
+###CRITICAL_ISSUES###
+- Kuch optional dependencies (jaise windnd, tkinterdnd2, sounddevice) missing hone par warnings print hoti hain, par agar core audio device hi disable ho jaye toh voice loop hang ho sakti hai.
+
+###IMPROVEMENTS###
+- Background threads me exception logging ko centralize karna chahiye taaki koi bhi silent crash user ko affect na kare.
+- TTS fallback mechanism ko aur fast banana chahiye taaki network slow hone par offline pyttsx3 bina kisi delay ke switch ho sake.
