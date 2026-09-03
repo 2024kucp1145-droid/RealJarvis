@@ -1,0 +1,23 @@
+╔══════════════════════════════════════════════╗
+║     JARVIS SELF-DEBUG REPORT                 ║
+║     Generated: 2026-08-24_09-16-08                ║
+║     Files Scanned: 34                          ║
+╚══════════════════════════════════════════════╝
+
+###ANALYSIS###
+File: voice.py
+- Line ~350: Sphinx offline fallback bina proper error handling ke crash ho sakta hai agar pocketsphinx installed na ho.
+- Suggested fix: Try-except block lagakar graceful degradation ensure karo.
+
+###CRITICAL_ISSUES###
+1. Auth module mein face verification ka fallback agar fail ho toh infinite wait state aa sakti hai.
+2. Main thread aur background thread ke beech UI updates safe tarike se nahi ho rahe kuch modules mein.
+
+###IMPROVEMENTS###
+1. Activity tracker mein CPU usage optimize karne ke liye polling interval thoda badha sakte hain.
+2. AI brain ke andar error logs ko local file mein rotate karke save karne ka mechanism add karlo.
+
+════════════════════════════════════════════════
+SAFETY NOTE: Ye sirf READ-ONLY report hai.
+Koi file automatically change nahi hui.
+Manual review ke baad hi changes apply karein.

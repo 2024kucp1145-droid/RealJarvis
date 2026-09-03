@@ -1,0 +1,8 @@
+{
+  "master_phone": "+917014093732",
+  "provider": "local",
+  "auto_alerts_enabled": true,
+  "twilio_account_sid": "",
+  "twilio_auth_token": "",
+  "twilio_from_number": "whatsapp:+14155238886"
+}
