@@ -15,6 +15,7 @@ import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import config
 
 
 SUBWAY_SURFERS_3D_TEMPLATE = """<!DOCTYPE html>
@@ -391,6 +392,183 @@ SPACE_SHOOTER_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
+CRICKET_GAME_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+    <title>🏏 JARVIS PREMIER LEAGUE CRICKET</title>
+    <style>
+        body { margin: 0; background: #0a192f; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        #scoreboard { font-size: 28px; font-weight: bold; margin-bottom: 10px; color: #64ffda; text-shadow: 0 0 10px #64ffda; }
+        canvas { background: #1b4332; border: 4px solid #64ffda; border-radius: 12px; box-shadow: 0 0 25px rgba(100, 255, 218, 0.4); }
+        #msg { font-size: 22px; font-weight: bold; min-height: 30px; margin-top: 10px; color: #ffd700; text-shadow: 0 0 10px #ffd700; }
+        #controls { color: #8892b0; margin-top: 5px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div id="scoreboard">RUNS: <span id="runs">0</span> | WICKETS: <span id="wickets">0</span>/5 | BALLS: <span id="balls">0</span></div>
+    <canvas id="pitch" width="600" height="450"></canvas>
+    <div id="msg">READY! Press SPACEBAR or CLICK to Hit the Shot!</div>
+    <div id="controls">⚡ Timing is everything: Hit when the ball reaches the White Batting Crease!</div>
+
+    <script>
+        const canvas = document.getElementById("pitch");
+        const ctx = canvas.getContext("2d");
+        let runs = 0, wickets = 0, balls = 0;
+        let ball = { x: 300, y: 80, radius: 10, speedY: 4, speedX: 0, active: true, swing: 0 };
+        let batsman = { x: 300, y: 380, width: 40, height: 15, swinging: false };
+        let gameOver = false;
+        let lastShotMsg = "";
+
+        function bowlBall() {
+            if (wickets >= 5) {
+                gameOver = true;
+                document.getElementById("msg").innerText = "🏆 INNINGS OVER! Final Score: " + runs + " Runs. Press (R) to Restart!";
+                return;
+            }
+            ball.x = 300 + (Math.random() * 60 - 30);
+            ball.y = 80;
+            ball.speedY = 4.5 + Math.random() * 3;
+            ball.speedX = (Math.random() * 2 - 1);
+            ball.active = true;
+            batsman.swinging = false;
+        }
+
+        function hitShot() {
+            if (gameOver) return;
+            if (!ball.active) return;
+            batsman.swinging = true;
+            balls++;
+            document.getElementById("balls").innerText = balls;
+
+            // Check timing relative to crease (y = 380)
+            const dist = Math.abs(ball.y - 380);
+            if (dist < 25) {
+                // Perfect / Good Timing
+                const shotType = Math.random();
+                let shotRuns = 0;
+                if (dist < 10) {
+                    shotRuns = (shotType > 0.4) ? 6 : 4;
+                    lastShotMsg = "💥 HUGE MAXIMUM! THAT'S A " + shotRuns + "!";
+                } else {
+                    shotRuns = (shotType > 0.5) ? 4 : (shotType > 0.2 ? 2 : 1);
+                    lastShotMsg = "🏏 CRACKING SHOT! " + shotRuns + " Runs!";
+                }
+                runs += shotRuns;
+                document.getElementById("runs").innerText = runs;
+                ball.speedY = -12;
+                ball.speedX = (Math.random() * 10 - 5);
+            } else if (dist < 50) {
+                // Edged or 1 Run
+                const isOut = Math.random() < 0.4;
+                if (isOut) {
+                    wickets++;
+                    document.getElementById("wickets").innerText = wickets;
+                    lastShotMsg = "🔴 OUT! EDGED AND TAKEN BY WICKETKEEPER!";
+                } else {
+                    runs += 1;
+                    document.getElementById("runs").innerText = runs;
+                    lastShotMsg = "⚡ Quick Single Taken! 1 Run.";
+                }
+                ball.speedY = -6;
+            } else {
+                // Missed
+                if (ball.y >= 380) {
+                    wickets++;
+                    document.getElementById("wickets").innerText = wickets;
+                    lastShotMsg = "🔴 BOWLED HIM! CLEAN BOWLED!";
+                } else {
+                    lastShotMsg = "⚠️ SWUNG TOO EARLY! DOT BALL.";
+                }
+            }
+            document.getElementById("msg").innerText = lastShotMsg;
+            ball.active = false;
+            setTimeout(bowlBall, 1200);
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === " " || e.key === "Enter") hitShot();
+            if ((e.key === "r" || e.key === "R") && gameOver) {
+                runs = 0; wickets = 0; balls = 0; gameOver = false;
+                document.getElementById("runs").innerText = "0";
+                document.getElementById("wickets").innerText = "0";
+                document.getElementById("balls").innerText = "0";
+                document.getElementById("msg").innerText = "READY! Press SPACEBAR or CLICK to Hit!";
+                bowlBall();
+            }
+        });
+        canvas.addEventListener("click", hitShot);
+
+        function draw() {
+            // Grass
+            ctx.fillStyle = "#1b4332";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Pitch
+            ctx.fillStyle = "#d4a373";
+            ctx.fillRect(240, 50, 120, 350);
+
+            // Creases (White Lines)
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 3;
+            // Bowling Crease
+            ctx.beginPath(); ctx.moveTo(240, 90); ctx.lineTo(360, 90); ctx.stroke();
+            // Batting Crease
+            ctx.beginPath(); ctx.moveTo(240, 380); ctx.lineTo(360, 380); ctx.stroke();
+
+            // Stumps
+            ctx.fillStyle = "#fff";
+            [285, 300, 315].forEach(x => {
+                ctx.fillRect(x, 400, 6, 15); // Batting stumps
+                ctx.fillRect(x, 60, 6, 15);  // Bowling stumps
+            });
+
+            // Batsman (Bat & Player)
+            ctx.fillStyle = batsman.swinging ? "#ffd700" : "#64ffda";
+            ctx.fillRect(batsman.x - 20, batsman.y, batsman.width, batsman.height);
+            // Bat
+            ctx.fillStyle = "#e76f51";
+            if (batsman.swinging) {
+                ctx.fillRect(batsman.x + 15, batsman.y - 15, 8, 30);
+            } else {
+                ctx.fillRect(batsman.x + 15, batsman.y, 8, 25);
+            }
+
+            // Ball
+            if (ball.y < canvas.height + 20) {
+                ctx.fillStyle = "#ff0055";
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = "#fff";
+                ctx.stroke();
+
+                if (ball.active) {
+                    ball.y += ball.speedY;
+                    ball.x += ball.speedX;
+                    if (ball.y > 420) {
+                        wickets++;
+                        document.getElementById("wickets").innerText = wickets;
+                        lastShotMsg = "🔴 BOWLED! Ball went past the bat!";
+                        document.getElementById("msg").innerText = lastShotMsg;
+                        ball.active = false;
+                        setTimeout(bowlBall, 1200);
+                    }
+                } else {
+                    ball.y += ball.speedY;
+                    ball.x += ball.speedX;
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        bowlBall();
+        draw();
+    </script>
+</body>
+</html>
+"""
+
 
 class GameSynthesizer:
     @staticmethod
@@ -422,20 +600,32 @@ class GameSynthesizer:
         return html_path
 
     @staticmethod
+    def create_and_launch_cricket() -> str:
+        temp_dir = tempfile.gettempdir()
+        html_path = os.path.join(temp_dir, "jarvis_cricket_game.html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(CRICKET_GAME_TEMPLATE)
+        webbrowser.open(f"file:///{html_path}")
+        return html_path
+
+    @staticmethod
     def synthesize_custom_game(prompt: str, ai_brain=None) -> str:
         """Dynamically writes an entire standalone HTML5/JS game based on any user prompt using AI."""
         p_lower = prompt.lower()
-        if "snake" in p_lower:
+        if "cricket" in p_lower:
+            return GameSynthesizer.create_and_launch_cricket()
+        elif "snake" in p_lower:
             return GameSynthesizer.create_and_launch_snake()
         elif "space" in p_lower or "galaxy" in p_lower or "shooter" in p_lower:
             return GameSynthesizer.create_and_launch_space_shooter()
-        elif "subway" in p_lower or "runner" in p_lower or "3d" in p_lower:
+        elif "subway" in p_lower or "surfer" in p_lower:
             return GameSynthesizer.create_and_launch_subway_surfer()
 
         # Dynamic AI synthesis with Gemini
         try:
             from google import genai
-            client = genai.Client(api_key=config.GEMINI_API_KEY)
+            api_key = getattr(config, "GEMINI_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
+            client = genai.Client(api_key=api_key)
             sys_prompt = "You are an expert game developer. Write a single standalone complete playable HTML5/Canvas/Three.js game with rich graphics and smooth keyboard/mouse controls based on the user's prompt. Output ONLY valid HTML code, with no markdown tags or explanations."
             resp = client.models.generate_content(
                 model=config.GEMINI_MODEL,
@@ -458,7 +648,7 @@ class GameSynthesizer:
             return html_path
         except Exception as e:
             print(f"[synthesize_custom_game error: {e}]")
-            return GameSynthesizer.create_and_launch_subway_surfer()
+            return GameSynthesizer.create_and_launch_cricket()
 
 
 synthesizer = GameSynthesizer()
