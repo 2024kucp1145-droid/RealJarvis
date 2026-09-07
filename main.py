@@ -426,6 +426,17 @@ class Jarvis:
         # ---- VIDEO MODE ----
         if getattr(self, 'video_mode', False):
             return self._handle_video_commands(text)
+
+        # ---- AUTONOMOUS GAME & WEBGL SYNTHESIZER PRIORITY TRIGGER ----
+        try:
+            clean_lower = text.strip().lower()
+            if any(w in clean_lower for w in ("game bana", "game chalu", "game generate", "subway surfer", "subway surfers", "3d runner", "snake game", "space shooter", "shooter game", "racing game", "flappy bird", "puzzle game", "play game", "arcade game")):
+                import game_synthesizer
+                game_synthesizer.synthesizer.synthesize_custom_game(text)
+                self.speak("Boss, maine game synthesize karke aapke browser mein launch kar diya hai. Enjoy kijiye!", emotion="excited")
+                return True
+        except Exception as e:
+            print(f"[game_synthesizer priority error: {e}]")
         
         cmd_id, data, matched_trigger = find_command(text)
         # ... baaki same code ...
@@ -693,12 +704,14 @@ class Jarvis:
             if platform_actions.route_platform_action(text, self.voice, self.ai):
                 return True
 
-                    # ---- ALWAYS-ON VISION: Agar monitor ON hai aur user screen ke baare mein pooch raha hai ----
+            # ---- ALWAYS-ON VISION: Sirf tab trigger hoga jab user EXPLICITLY screen/display ke baare mein pooche ----
             if self.screen_monitor.is_running() and self.screen_monitor.get_latest():
-                visual_keywords = ["kya hai", "kya kar", "help", "samjhao", "batao", 
-                                   "ye", "is", "screen", "page", "code", "error", 
-                                   "galat", "kaam", "problem", "issue", "kya ho raha"]
-                if any(kw in text.lower() for kw in visual_keywords):
+                explicit_visual_keywords = [
+                    "screen par kya hai", "screen dekho", "meri screen dekho",
+                    "screen padho", "display par kya hai", "screen samjhao",
+                    "screen pe kya khula hai", "what is on my screen", "look at my screen"
+                ]
+                if any(kw in text.lower() for kw in explicit_visual_keywords):
                     return self.handle_monitor_vision(text)
 
             if self.ai.available():
