@@ -694,23 +694,32 @@ class Jarvis:
                 desktop_ctx = desktop_context.build_context_summary()
                 full_ctx = f"{mem_ctx}\n\n{desktop_ctx}"
 
-                result = self.ai.understand_command(text, extra_context=full_ctx)
-                if result and result[0] == "action":
-                    self._dispatch_ai_action(result[1], result[2])
-                    return True
-                elif result and result[0] == "text":
-                    # Check if this text indicates an actionable unlearned task
-                    if self_evolution_engine.evolution_engine.triage_missing_skill(text, context=full_ctx):
-                        return True
+                # ---- AGENTIC CHAIN-OF-THOUGHT (CoT) REASONING LOOP ----
+                import agentic_cot_brain
+                step = agentic_cot_brain.cot_brain.reason_and_plan(text, context=full_ctx)
 
-                    # Instant Streaming Speech: Speak sentence-by-sentence immediately
-                    interrupted = self.speak_ai_stream(text)
-                    if interrupted:
-                        follow_up = self.listen(timeout=6, phrase_time_limit=10)
-                        if follow_up:
-                            self.gui.show_message(f"Aapne kaha: {follow_up}")
-                            return self.handle_text(follow_up)
+                if step.action_name:
+                    if step.response_text:
+                        self.speak(step.response_text, emotion=step.emotion)
+                    agentic_cot_brain.cot_brain.execute_step_action(step, jarvis_instance=self)
                     return True
+                else:
+                    if step.response_text:
+                        interrupted = self.speak(step.response_text, interruptible=True, emotion=step.emotion)
+                        if interrupted:
+                            follow_up = self.listen(timeout=6, phrase_time_limit=10)
+                            if follow_up:
+                                self.gui.show_message(f"Aapne kaha: {follow_up}")
+                                return self.handle_text(follow_up)
+                        return True
+                    else:
+                        interrupted = self.speak_ai_stream(text)
+                        if interrupted:
+                            follow_up = self.listen(timeout=6, phrase_time_limit=10)
+                            if follow_up:
+                                self.gui.show_message(f"Aapne kaha: {follow_up}")
+                                return self.handle_text(follow_up)
+                        return True
 
                 # Check if unhandled intent is an actionable missing skill
                 if self_evolution_engine.evolution_engine.triage_missing_skill(text, context=full_ctx):
