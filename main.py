@@ -656,13 +656,13 @@ class Jarvis:
         except Exception as e:
             print(f"[google_maps_travel_hub error: {e}]")
 
-        # ---- AUTONOMOUS 3D GAME & WEBGL SYNTHESIZER ----
+        # ---- AUTONOMOUS GAME & WEBGL SYNTHESIZER ----
         try:
             clean_lower = text.strip().lower()
-            if any(w in clean_lower for w in ("subway surfer", "subway surfers", "3d game", "runner game", "game bana", "game chalu karo", "game generate")):
+            if any(w in clean_lower for w in ("subway surfer", "subway surfers", "3d game", "runner game", "game bana", "game chalu karo", "game generate", "snake game", "space game", "shooter game", "play game", "arcade game")):
                 import game_synthesizer
-                game_synthesizer.synthesizer.create_and_launch_subway_surfer()
-                self.speak("Boss, maine Three.js WebGL 3D Subway Surfers game synthesize karke browser mein launch kar diya hai. Left Right Arrow keys se lane switch karein aur Space se Jump karein!", emotion="excited")
+                game_synthesizer.synthesizer.synthesize_custom_game(text)
+                self.speak("Boss, maine game synthesize karke browser mein launch kar diya hai. Enjoy kijiye!", emotion="excited")
                 return True
         except Exception as e:
             print(f"[game_synthesizer error: {e}]")
