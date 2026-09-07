@@ -290,6 +290,108 @@ SUBWAY_SURFERS_3D_TEMPLATE = """<!DOCTYPE html>
 """
 
 
+NEON_SNAKE_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+    <title>🐍 JARVIS CYBER SNAKE</title>
+    <style>
+        body { background: #0a0a14; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; color: #00ffff; }
+        canvas { border: 3px solid #00ffff; box-shadow: 0 0 20px #00ffff; background: #000; }
+        #score { font-size: 24px; margin-bottom: 10px; text-shadow: 0 0 10px #00ffff; }
+    </style>
+</head>
+<body>
+    <div id="score">SCORE: 0</div>
+    <canvas id="gc" width="400" height="400"></canvas>
+    <p style="color:#aaa; margin-top:10px;">🎮 Use Arrow Keys (or W/A/S/D) to steer</p>
+    <script>
+        window.onload=function() {
+            canv=document.getElementById("gc");
+            ctx=canv.getContext("2d");
+            document.addEventListener("keydown",keyPush);
+            setInterval(game,1000/15);
+        }
+        px=py=10; gs=tc=20; ax=ay=15; xv=yv=0; trail=[]; tail = 5; score=0;
+        function game() {
+            px+=xv; py+=yv;
+            if(px<0) px= tc-1; if(px>tc-1) px= 0;
+            if(py<0) py= tc-1; if(py>tc-1) py= 0;
+            ctx.fillStyle="black"; ctx.fillRect(0,0,canv.width,canv.height);
+            ctx.fillStyle="#00ffff";
+            for(var i=0;i<trail.length;i++) {
+                ctx.fillRect(trail[i].x*gs,trail[i].y*gs,gs-2,gs-2);
+                if(trail[i].x==px && trail[i].y==py && (xv!=0 || yv!=0)) { tail = 5; score=0; document.getElementById("score").innerText="SCORE: 0"; }
+            }
+            trail.push({x:px,y:py});
+            while(trail.length>tail) { trail.shift(); }
+            if(ax==px && ay==py) {
+                tail++; score+=10; document.getElementById("score").innerText="SCORE: " + score;
+                ax=Math.floor(Math.random()*tc); ay=Math.floor(Math.random()*tc);
+            }
+            ctx.fillStyle="#ff3366"; ctx.fillRect(ax*gs,ay*gs,gs-2,gs-2);
+        }
+        function keyPush(evt) {
+            switch(evt.keyCode) {
+                case 37: case 65: if(xv!==1){xv=-1;yv=0;} break;
+                case 38: case 87: if(yv!==1){xv=0;yv=-1;} break;
+                case 39: case 68: if(xv!==-1){xv=1;yv=0;} break;
+                case 40: case 83: if(yv!==-1){xv=0;yv=1;} break;
+            }
+        }
+    </script>
+</body>
+</html>
+"""
+
+SPACE_SHOOTER_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+    <title>🚀 JARVIS GALAXY DEFENDER</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        #score { position: absolute; top: 20px; left: 20px; color: #00ffcc; font-size: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="score">SCORE: 0</div>
+    <canvas id="c"></canvas>
+    <script>
+        const c = document.getElementById("c"); const ctx = c.getContext("2d");
+        c.width = window.innerWidth; c.height = window.innerHeight;
+        let score = 0; let player = { x: c.width/2, y: c.height-80, w: 40, h: 40, speed: 8 };
+        let bullets = []; let enemies = []; let keys = {};
+        window.addEventListener("keydown", e => { keys[e.key] = true; if(e.key === " ") bullets.push({ x: player.x+17, y: player.y, w: 6, h: 15 }); });
+        window.addEventListener("keyup", e => keys[e.key] = false);
+        function spawnEnemy() { if(Math.random()<0.04) enemies.push({ x: Math.random()*(c.width-40), y: -40, w: 35, h: 35, speed: 3+Math.random()*3 }); }
+        function loop() {
+            ctx.fillStyle = "rgba(5, 5, 20, 0.3)"; ctx.fillRect(0, 0, c.width, c.height);
+            if(keys["ArrowLeft"] || keys["a"] || keys["A"]) player.x = Math.max(0, player.x-player.speed);
+            if(keys["ArrowRight"] || keys["d"] || keys["D"]) player.x = Math.min(c.width-player.w, player.x+player.speed);
+            ctx.fillStyle = "#00ffff"; ctx.fillRect(player.x, player.y, player.w, player.h);
+            ctx.fillStyle = "#ffff00";
+            bullets.forEach((b, i) => { b.y -= 12; ctx.fillRect(b.x, b.y, b.w, b.h); if(b.y < 0) bullets.splice(i, 1); });
+            spawnEnemy();
+            ctx.fillStyle = "#ff3366";
+            enemies.forEach((e, i) => {
+                e.y += e.speed; ctx.fillRect(e.x, e.y, e.w, e.h);
+                bullets.forEach((b, bi) => {
+                    if(b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
+                        enemies.splice(i, 1); bullets.splice(bi, 1); score += 50;
+                        document.getElementById("score").innerText = "SCORE: " + score;
+                    }
+                });
+                if(e.y > c.height) enemies.splice(i, 1);
+            });
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
+"""
+
+
 class GameSynthesizer:
     @staticmethod
     def create_and_launch_subway_surfer() -> str:
@@ -300,6 +402,63 @@ class GameSynthesizer:
             f.write(SUBWAY_SURFERS_3D_TEMPLATE)
         webbrowser.open(f"file:///{html_path}")
         return html_path
+
+    @staticmethod
+    def create_and_launch_snake() -> str:
+        temp_dir = tempfile.gettempdir()
+        html_path = os.path.join(temp_dir, "jarvis_snake_game.html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(NEON_SNAKE_TEMPLATE)
+        webbrowser.open(f"file:///{html_path}")
+        return html_path
+
+    @staticmethod
+    def create_and_launch_space_shooter() -> str:
+        temp_dir = tempfile.gettempdir()
+        html_path = os.path.join(temp_dir, "jarvis_space_shooter.html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(SPACE_SHOOTER_TEMPLATE)
+        webbrowser.open(f"file:///{html_path}")
+        return html_path
+
+    @staticmethod
+    def synthesize_custom_game(prompt: str, ai_brain=None) -> str:
+        """Dynamically writes an entire standalone HTML5/JS game based on any user prompt using AI."""
+        p_lower = prompt.lower()
+        if "snake" in p_lower:
+            return GameSynthesizer.create_and_launch_snake()
+        elif "space" in p_lower or "galaxy" in p_lower or "shooter" in p_lower:
+            return GameSynthesizer.create_and_launch_space_shooter()
+        elif "subway" in p_lower or "runner" in p_lower or "3d" in p_lower:
+            return GameSynthesizer.create_and_launch_subway_surfer()
+
+        # Dynamic AI synthesis with Gemini
+        try:
+            from google import genai
+            client = genai.Client(api_key=config.GEMINI_API_KEY)
+            sys_prompt = "You are an expert game developer. Write a single standalone complete playable HTML5/Canvas/Three.js game with rich graphics and smooth keyboard/mouse controls based on the user's prompt. Output ONLY valid HTML code, with no markdown tags or explanations."
+            resp = client.models.generate_content(
+                model=config.GEMINI_MODEL,
+                contents=f"Prompt: {prompt}",
+                config={"system_instruction": sys_prompt}
+            )
+            raw_html = resp.text.strip()
+            if raw_html.startswith("```html"):
+                raw_html = raw_html[7:]
+            if raw_html.startswith("```"):
+                raw_html = raw_html[3:]
+            if raw_html.endswith("```"):
+                raw_html = raw_html[:-3]
+
+            temp_dir = tempfile.gettempdir()
+            html_path = os.path.join(temp_dir, f"jarvis_custom_game_{int(time.time())}.html")
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(raw_html)
+            webbrowser.open(f"file:///{html_path}")
+            return html_path
+        except Exception as e:
+            print(f"[synthesize_custom_game error: {e}]")
+            return GameSynthesizer.create_and_launch_subway_surfer()
 
 
 synthesizer = GameSynthesizer()
