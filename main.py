@@ -656,6 +656,17 @@ class Jarvis:
         except Exception as e:
             print(f"[google_maps_travel_hub error: {e}]")
 
+        # ---- AUTONOMOUS 3D GAME & WEBGL SYNTHESIZER ----
+        try:
+            clean_lower = text.strip().lower()
+            if any(w in clean_lower for w in ("subway surfer", "subway surfers", "3d game", "runner game", "game bana", "game chalu karo", "game generate")):
+                import game_synthesizer
+                game_synthesizer.synthesizer.create_and_launch_subway_surfer()
+                self.speak("Boss, maine Three.js WebGL 3D Subway Surfers game synthesize karke browser mein launch kar diya hai. Left Right Arrow keys se lane switch karein aur Space se Jump karein!", emotion="excited")
+                return True
+        except Exception as e:
+            print(f"[game_synthesizer error: {e}]")
+
         if not cmd_id:
             # STT kabhi-kabhi trailing punctuation (., ?) add kar deta hai -
             # usse hata ke match karte hain, warna pattern silently fail ho
@@ -665,9 +676,11 @@ class Jarvis:
             app_match = OPEN_APP_PATTERN.match(clean_text)
             if app_match and app_match.group(1).strip():
                 app_name = app_match.group(1).strip()
-                print(f"[generic app-open matched: '{app_name}']")
-                system_commands.open_any_app(self.voice, name=app_name)
-                return True
+                # Guard: Do not treat long complex prompts or game synthesis requests as OS apps
+                if len(app_name.split()) <= 3 and not any(v in app_name.lower() for v in ("game", "banao", "banakar", "create", "generate", "code", "runner", "surfer", "for")):
+                    print(f"[generic app-open matched: '{app_name}']")
+                    system_commands.open_any_app(self.voice, name=app_name)
+                    return True
 
             shortcut_match = SHORTCUT_PATTERN.match(clean_text)
             if shortcut_match and shortcut_match.group(1).strip():
