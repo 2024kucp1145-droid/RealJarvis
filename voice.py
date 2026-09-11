@@ -138,10 +138,15 @@ class Voice:
 
         if use_online and edge_tts:
             try:
-                self._speak_online(text, rate, pitch)
-                return False
+                import streaming_audio_engine
+                return streaming_audio_engine.streaming_engine.speak_streaming(text, emotion=emotion, interruptible=interruptible)
             except Exception as e:
-                print(f"[online voice fail, offline pe switch: {e}]")
+                print(f"[streaming audio engine fail, fallback to standard: {e}]")
+                try:
+                    self._speak_online(text, rate, pitch)
+                    return False
+                except Exception:
+                    pass
 
         self._speak_offline(text, emotion)
         return False
