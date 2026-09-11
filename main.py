@@ -481,6 +481,21 @@ class Jarvis:
         except Exception as e:
             print(f"[self_evolution permission hook error: {e}]")
 
+        # ---- UNIVERSAL PREDICTIVE COPILOT PERMISSION FOLLOW-UP ----
+        try:
+            import universal_predictive_copilot
+            if universal_predictive_copilot.predictive_copilot.has_pending_prediction():
+                text_lower = text.lower()
+                if any(w in text_lower for w in ("haan", "yes", "kar do", "likh do", "theek hai", "sure", "ok", "kardo", "bilkul", "execute karo")):
+                    universal_predictive_copilot.predictive_copilot.execute_pending_prediction(voice=self.voice, gui=self.gui)
+                    return True
+                elif any(w in text_lower for w in ("nahi", "cancel", "mat karo", "rehne do", "no", "stop")):
+                    universal_predictive_copilot.predictive_copilot.clear_pending()
+                    self.speak("Theek hai boss, step cancel kar diya.")
+                    return True
+        except Exception as e:
+            print(f"[predictive_copilot follow-up error: {e}]")
+
         # ---- PROACTIVE GUARDIAN FOLLOW-UP ----
         # Agar user ne Jarvis ke proactive error alert ka response diya
         # jaise "haan batao", "fix kya hai", "solution copy karo", "theek karo"
@@ -591,8 +606,16 @@ class Jarvis:
 
 
 
-        # ---- AVENGERS ASSEMBLE PROTOCOL (FULL SYSTEM DIAGNOSTICS) ----
+        # ---- UNIVERSAL PREDICTIVE COPILOT (ASTRA-STYLE WORKFLOW PREDICTION) ----
         clean_lower = text.strip().lower()
+        if any(w in clean_lower for w in ("next step", "agla step", "aage kya", "suggest step", "predict workflow", "mera kaam dekho", "workflow suggest", "aage ka step")):
+            import universal_predictive_copilot
+            pred = universal_predictive_copilot.predictive_copilot.analyze_and_predict(text)
+            if pred:
+                self.speak(pred.speech_summary, emotion="excited")
+                return True
+
+        # ---- AVENGERS ASSEMBLE PROTOCOL (FULL SYSTEM DIAGNOSTICS) ----
         if any(w in clean_lower for w in ("avengers assemble", "avenger assemble", "avengers ready", "assemble avengers", "system diagnostics", "all systems check", "system health check")):
             import avengers_protocol
             avengers_protocol.protocol.execute_assemble_protocol(voice=self.voice, ai=self.ai, gui=self.gui)
