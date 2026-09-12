@@ -314,30 +314,22 @@ class Voice:
 
     # -------------------------------------------------------------- listen
     def listen(self, timeout=6, phrase_time_limit=8) -> str:
-        """Mic se sunta hai aur text return karta hai. Kuch na sune toh ''."""
+        """Mic se sunta hai aur text return karta hai. Keystrokes & transients filter karta hai."""
         if not self.recognizer:
             return ""
 
         with sr.Microphone() as source:
             if not self._calibrated:
-                    # Sirf pehli baar ek baar calibrate — 0.4s kaafi hai
-                    self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
-                    self._calibrated = True
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
+                self._calibrated = True
 
-            # Calibration kabhi-kabhi bahut high threshold set kar deta hai
-            # (noisy room me) - jisse dur se ya halka bolna sunayi nahi deta
-            # tha ("paas aa kar bolna padta tha"). Isse ek sensible range me
-            # clamp karte hain taaki sensitivity zyada rahe.
             self.recognizer.energy_threshold = min(
-                max(self.recognizer.energy_threshold, getattr(config, "MIC_ENERGY_MIN", 20)),
-                getattr(config, "MIC_ENERGY_MAX", 400),
+                max(self.recognizer.energy_threshold, getattr(config, "MIC_ENERGY_MIN", 40)),
+                getattr(config, "MIC_ENERGY_MAX", 450),
             )
-            self.recognizer.dynamic_energy_threshold = False  # calibration ke baad fixed rakho, upar nahi jaane do
-
-            # pause_threshold: bolna khatam hone ke baad kitna wait karo
-            # 0.28s = Ultra-fast instant response, zero dead air latency
-            self.recognizer.pause_threshold = 0.28
-            self.recognizer.non_speaking_duration = 0.10
+            self.recognizer.dynamic_energy_threshold = False
+            self.recognizer.pause_threshold = 0.30
+            self.recognizer.non_speaking_duration = 0.12
 
             try:
                 audio = self.recognizer.listen(source, timeout=timeout,
@@ -345,26 +337,46 @@ class Voice:
             except sr.WaitTimeoutError:
                 return ""
 
-        mode = config.STT_MODE
+        # Step 1: Far-Field AGC Pre-Amp
+        raw_pcm = audio.get_raw_data()
+        try:
+            from acoustic_filter_engine import acoustic_filter
+            amplified_pcm = acoustic_filter.apply_far_field_agc(raw_pcm, sample_rate=audio.sample_rate)
+            audio = sr.AudioData(amplified_pcm, audio.sample_rate, audio.sample_width)
+        except Exception:
+            amplified_pcm = raw_pcm
+
+        # Step 2: STT Recognition
+        mode = getattr(config, "STT_MODE", "auto")
         use_online = (mode == "google") or (mode == "auto" and has_internet())
+        result_text = ""
 
         if use_online:
-            # Hinglish/English/Hindi teeno cover karne ke liye pehle en-IN try
-            # karo (English + roman Hindi dono usually pakड़ leta hai), fir
-            # nahi mila toh hi-IN (Devanagari accurate Hindi ke liye) try karo.
-            for lang in config.RECOGNITION_LANGUAGES:
+            for lang in getattr(config, "RECOGNITION_LANGUAGES", ["en-IN", "hi-IN"]):
                 try:
-                    result = self.recognizer.recognize_google(audio, language=lang)
-                    if result:
-                        return result
+                    res = self.recognizer.recognize_google(audio, language=lang)
+                    if res:
+                        result_text = res
+                        break
                 except sr.UnknownValueError:
                     continue
                 except sr.RequestError:
-                    break  # internet chala gaya beech mein, offline pe jao
-            # online se kuch nahi mila - offline try karo
-            return self._recognize_offline_safe(audio)
+                    break
+            if not result_text:
+                result_text = self._recognize_offline_safe(audio)
         else:
-            return self._recognize_offline_safe(audio)
+            result_text = self._recognize_offline_safe(audio)
+
+        # Step 3: Keystroke & Typing Transient Filter
+        try:
+            from acoustic_filter_engine import acoustic_filter
+            if acoustic_filter.is_keystroke_transient(raw_pcm, sample_rate=audio.sample_rate, text=result_text):
+                print(f"[acoustic_filter] Silently suppressed keystroke click (phantom: '{result_text}')")
+                return ""
+        except Exception as e:
+            print(f"[acoustic_filter check error: {e}]")
+
+        return result_text
 
     def _recognize_offline_safe(self, audio) -> str:
         """Safely attempts offline STT without crashing if pocketsphinx is uninstalled."""
