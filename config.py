@@ -48,12 +48,19 @@ SPEECH_RATE = 175                    # offline voice ki speed
 
 # STT (sunna): "google" (online, sabse accurate) ya "offline" (Sphinx, kam accurate)
 STT_MODE = "auto"
-MIC_ENERGY_MIN = 50
-MIC_ENERGY_MAX = 400
+MIC_ENERGY_MIN = 40
+MIC_ENERGY_MAX = 450
 # In languages me try karega recognition (order matter karta hai - pehle wali
 # pehle try hoti hai). "en-IN" Hinglish/English dono kaafi achhe se pakड़ leta
 # hai. Chaho toh aur languages add kar sakte ho, e.g. "ta-IN" (Tamil), "te-IN" (Telugu).
 RECOGNITION_LANGUAGES = ["en-IN", "hi-IN"]
+
+# ---------------- ACOUSTIC BIO-SENSING & FAR-FIELD ----------------
+ACOUSTIC_FILTER_ENABLED = True
+KEYSTROKE_SUPPRESSION_ENABLED = True      # Suppresses typing keystroke clicks from triggering voice
+FAR_FIELD_AGC_ENABLED = True              # Boosts distant/quiet voices across room by 2.5x
+FAR_FIELD_GAIN_MULTIPLIER = 2.5
+PARALINGUISTIC_DETECTION_ENABLED = True   # Detects human emotional acoustics: Yawning, Laughing, Singing/Humming, Crying
 
 # ---------------- EMAIL ----------------
 EMAIL_ENABLED = True

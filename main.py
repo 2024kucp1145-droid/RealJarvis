@@ -423,6 +423,16 @@ class Jarvis:
     def handle_text(self, text: str) -> bool:
         """Return False agar conversation/session yahi khatam karni ho."""
         
+        # ---- HUMAN PARALINGUISTIC BIO-EVENT HANDLER (Yawn, Laugh, Hum, Cry) ----
+        try:
+            from acoustic_filter_engine import acoustic_filter
+            bio_event = acoustic_filter.detect_paralinguistic_event(b"", text=text)
+            if bio_event.get("event") != "none" and bio_event.get("message"):
+                self.speak(bio_event["message"], emotion=bio_event.get("emotion", "calm"))
+                return True
+        except Exception as e:
+            print(f"[paralinguistic bio-event error: {e}]")
+
         # ---- VIDEO MODE ----
         if getattr(self, 'video_mode', False):
             return self._handle_video_commands(text)
