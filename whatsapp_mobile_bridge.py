@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 whatsapp_mobile_bridge.py
 ==========================
 Phone-to-Laptop WhatsApp Mobile Bridge (Phases 1, 2, 3, 4 & 5 Complete).
 
 Features:
-1. "Message Yourself" (ME / You) Direct Routing — all conversation stays in your private WhatsApp chat.
-2. Master Whitelist Security — only your verified phone number (+917014093732) is authorized.
+1. "Message Yourself" (ME / You) Direct Routing â€” all conversation stays in your private WhatsApp chat.
+2. Master Whitelist Security â€” only your verified phone number (YOUR_PHONE_NUMBER) is authorized.
 3. Phase 1: Live System Telemetry Engine (Battery, RAM, CPU, Active App, Storage).
 4. Phase 2: Remote Boot & Power Control (WoL setup info, Lock, Sleep, Shutdown, Restart).
 5. Phase 3: WhatsApp File Dispatcher & Live Screen Eye (Send any PDF/File to phone, Live Screenshot).
@@ -47,7 +47,7 @@ class WhatsAppMobileBridge:
         self.enabled = True
 
         self.config = self._load_config()
-        self.master_phone = self.config.get("master_phone", "+917014093732")
+        self.master_phone = self.config.get("master_phone", "YOUR_PHONE_NUMBER")
         self.api_provider = self.config.get("provider", "local")
         
         self._last_proactive_alert_time = 0
@@ -61,7 +61,7 @@ class WhatsAppMobileBridge:
             except Exception:
                 pass
         default_cfg = {
-            "master_phone": "+917014093732",
+            "master_phone": "YOUR_PHONE_NUMBER",
             "provider": "local",
             "auto_alerts_enabled": True,
             "twilio_account_sid": "",
@@ -132,8 +132,8 @@ class WhatsAppMobileBridge:
         try:
             bat = psutil.sensors_battery()
             if bat:
-                plug_str = "⚡ Charging (Plugged)" if bat.power_plugged else "🔋 On Battery"
-                bat_str = f"🔋 *Battery:* {int(bat.percent)}% ({plug_str})"
+                plug_str = "âš¡ Charging (Plugged)" if bat.power_plugged else "ðŸ”‹ On Battery"
+                bat_str = f"ðŸ”‹ *Battery:* {int(bat.percent)}% ({plug_str})"
         except Exception:
             pass
 
@@ -141,9 +141,9 @@ class WhatsAppMobileBridge:
         cpu_str = "CPU: N/A"
         try:
             mem = psutil.virtual_memory()
-            ram_str = f"💾 *RAM:* {int(mem.percent)}% ({round(mem.used/(1024**3), 1)}GB / {round(mem.total/(1024**3), 1)}GB)"
+            ram_str = f"ðŸ’¾ *RAM:* {int(mem.percent)}% ({round(mem.used/(1024**3), 1)}GB / {round(mem.total/(1024**3), 1)}GB)"
             cpu_pct = psutil.cpu_percent(interval=None)
-            cpu_str = f"⚡ *CPU Load:* {int(cpu_pct)}%"
+            cpu_str = f"âš¡ *CPU Load:* {int(cpu_pct)}%"
         except Exception:
             pass
 
@@ -151,7 +151,7 @@ class WhatsAppMobileBridge:
         try:
             drive_letter = (os.path.splitdrive(os.path.abspath('.'))[0] + '\\') or "C:\\"
             disk = psutil.disk_usage(drive_letter)
-            disk_str = f"💽 *{drive_letter} Free:* {round(disk.free/(1024**3), 1)} GB (Total {round(disk.total/(1024**3), 1)} GB)"
+            disk_str = f"ðŸ’½ *{drive_letter} Free:* {round(disk.free/(1024**3), 1)} GB (Total {round(disk.total/(1024**3), 1)} GB)"
         except Exception:
             pass
 
@@ -166,14 +166,14 @@ class WhatsAppMobileBridge:
             pass
 
         msg = (
-            f"🤖 *JARVIS TELEMETRY (ME CHAT)*\n"
-            f"🕒 *Time:* {now}\n\n"
+            f"ðŸ¤– *JARVIS TELEMETRY (ME CHAT)*\n"
+            f"ðŸ•’ *Time:* {now}\n\n"
             f"{bat_str}\n"
             f"{ram_str}\n"
             f"{cpu_str}\n"
             f"{disk_str}\n"
-            f"🖥️ *Active App:* {active_app}\n\n"
-            f"🟢 *Status:* All 10 Sentries Active & Operational."
+            f"ðŸ–¥ï¸ *Active App:* {active_app}\n\n"
+            f"ðŸŸ¢ *Status:* All 10 Sentries Active & Operational."
         )
         return msg
 
@@ -267,7 +267,7 @@ class WhatsAppMobileBridge:
 
         self._last_proactive_alert_time = now
         alert_text = (
-            f"⚠️ *EMERGENCY BATTERY ALERT!*\n\n"
+            f"âš ï¸ *EMERGENCY BATTERY ALERT!*\n\n"
             f"Boss, aapka laptop abhi *{percent}% battery* par chal raha hai aur charger connected nahi hai!\n"
             f"Laptop 25% par lock/shutdown ho jayega. Please turant charger connect karein!"
         )
@@ -322,8 +322,8 @@ class WhatsAppMobileBridge:
             return "Screenshot capture nahi ho paaya."
 
         msg = (
-            f"📸 *LIVE SCREENSHOT CAPTURED*\n"
-            f"📁 *Saved at:* `{img_path}`\n\n"
+            f"ðŸ“¸ *LIVE SCREENSHOT CAPTURED*\n"
+            f"ðŸ“ *Saved at:* `{img_path}`\n\n"
             f"Screen preview ready hai boss."
         )
         self.send_whatsapp_message(msg)
@@ -359,9 +359,9 @@ class WhatsAppMobileBridge:
 
         best_name, best_path, size = matched_files[0]
         msg = (
-            f"📄 *FILE READY FOR DISPATCH*\n"
-            f"• *File:* `{best_name}` ({size} MB)\n"
-            f"• *Location:* `{best_path}`\n\n"
+            f"ðŸ“„ *FILE READY FOR DISPATCH*\n"
+            f"â€¢ *File:* `{best_name}` ({size} MB)\n"
+            f"â€¢ *Location:* `{best_path}`\n\n"
             f"File 'ME' chat par attach karne ke liye ready hai."
         )
         self.send_whatsapp_message(msg)
@@ -392,24 +392,24 @@ class WhatsAppMobileBridge:
         act = action.lower()
         if any(w in act for w in ("play", "pause", "chalao", "rok do")):
             pyautogui.press('playpause')
-            return "⏯️ Media Play/Pause toggle kar diya."
+            return "â¯ï¸ Media Play/Pause toggle kar diya."
         if "next" in act or "aage" in act:
             pyautogui.press('nexttrack')
-            return "⏭️ Next track switch kar diya."
+            return "â­ï¸ Next track switch kar diya."
         if "prev" in act or "peeche" in act:
             pyautogui.press('prevtrack')
-            return "⏮️ Previous track switch kar diya."
+            return "â®ï¸ Previous track switch kar diya."
         if "mute" in act:
             pyautogui.press('volumemute')
-            return "🔇 System Mute/Unmute toggle kar diya."
+            return "ðŸ”‡ System Mute/Unmute toggle kar diya."
         if "volume up" in act:
             for _ in range(5):
                 pyautogui.press('volumeup')
-            return "🔊 Volume badha diya."
+            return "ðŸ”Š Volume badha diya."
         if "volume down" in act:
             for _ in range(5):
                 pyautogui.press('volumedown')
-            return "🔉 Volume kam kar diya."
+            return "ðŸ”‰ Volume kam kar diya."
         return "Media action samajh nahi aayi. Options: play, pause, next, prev, mute, volume up/down."
 
     # =========================================================================
@@ -423,7 +423,7 @@ class WhatsAppMobileBridge:
         # Block destructive shell commands remotely for safety
         dangerous = ["format", "del /f /s /q c:", "rd /s /q c:", "rmdir /s /q c:"]
         if any(d in clean_cmd.lower() for d in dangerous):
-            return "⛔ Security Block: Dangerous disk command rejected."
+            return "â›” Security Block: Dangerous disk command rejected."
 
         try:
             res = subprocess.run(
@@ -440,10 +440,10 @@ class WhatsAppMobileBridge:
             if len(out) > 1500:
                 out = out[:1500] + "\n\n... [Output Truncated]"
 
-            return f"💻 *REMOTE TERMINAL OUTPUT:*\n```\n{out}\n```"
+            return f"ðŸ’» *REMOTE TERMINAL OUTPUT:*\n```\n{out}\n```"
 
         except subprocess.TimeoutExpired:
-            return "⏱️ Command Execution Timeout (exceeded 20s)."
+            return "â±ï¸ Command Execution Timeout (exceeded 20s)."
         except Exception as e:
             return f"Terminal Error: {e}"
 
@@ -457,7 +457,7 @@ class WhatsAppMobileBridge:
             clean_sender = re.sub(r"[^\d]", "", sender_phone)
             clean_master = re.sub(r"[^\d]", "", self.master_phone)
             if clean_master and clean_sender != clean_master:
-                return "⛔ Unauthorized access rejected. Only Master 'ME' User allowed."
+                return "â›” Unauthorized access rejected. Only Master 'ME' User allowed."
 
         text = raw_text.strip().lower()
 
@@ -509,9 +509,10 @@ class WhatsAppMobileBridge:
         # 8. Fallback: Ask Jarvis Brain
         if self.ai and self.ai.available():
             reply, _ = self.ai.ask(f"User ne WhatsApp ME chat se ye poocha hai: {raw_text}\nConcise 2-sentence response do.")
-            return f"🤖 *Jarvis:* {reply}"
+            return f"ðŸ¤– *Jarvis:* {reply}"
 
         return "Command samajh nahi aayi. 'status', 'screenshot', 'bhejo [file]', 'cmd: [command]', 'play/pause', 'sleep', ya 'wol' try karein."
 
 
 bridge = WhatsAppMobileBridge()
+

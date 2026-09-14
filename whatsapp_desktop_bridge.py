@@ -1,19 +1,19 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
-whatsapp_desktop_bridge.py  (v1 — 100% Chrome-Free)
+whatsapp_desktop_bridge.py  (v1 â€” 100% Chrome-Free)
 =====================================================
 Reads messages from WhatsApp Desktop app via Windows Notification DB.
 Sends replies by typing directly into WhatsApp Desktop app window.
 
 Architecture:
   Phone sends message
-    → WhatsApp Desktop shows notification
-    → Windows stores it in wpndatabase.db (SQLite)
-    → This script polls DB every 2.5s for new WA notifications
-    → Extracts message text from notification XML payload
-    → Processes command via whatsapp_mobile_bridge
-    → Sends reply by keyboard-typing into WhatsApp Desktop app
-    → Reply appears on your phone (same WA account)
+    â†’ WhatsApp Desktop shows notification
+    â†’ Windows stores it in wpndatabase.db (SQLite)
+    â†’ This script polls DB every 2.5s for new WA notifications
+    â†’ Extracts message text from notification XML payload
+    â†’ Processes command via whatsapp_mobile_bridge
+    â†’ Sends reply by keyboard-typing into WhatsApp Desktop app
+    â†’ Reply appears on your phone (same WA account)
 
 NO Chrome. NO Selenium. NO new windows. EVER.
 """
@@ -39,25 +39,25 @@ try:
 except ImportError:
     pass  # handled at runtime
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 NOTIF_DB      = os.path.expandvars(
     r'%LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db')
 WA_HANDLER_ID = 170          # WhatsApp Desktop's handler row ID in DB (discovered)
-MY_PHONE      = "+917014093732"
+MY_PHONE      = "YOUR_PHONE_NUMBER"
 POLL_INTERVAL = 2.5          # seconds between DB polls
 
 bridge = whatsapp_mobile_bridge.bridge
 
-# ── Dedup State ────────────────────────────────────────────────────────────────
+# â”€â”€ Dedup State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _seen_notif_ids  = set()     # DB notification IDs already processed
-_seen_text_hash  = {}        # {md5: last_epoch} — block same text for 60s
+_seen_text_hash  = {}        # {md5: last_epoch} â€” block same text for 60s
 _last_notif_id   = 0         # highest notification ID seen so far
 _send_lock       = threading.Lock()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # 1. READ MESSAGES FROM WINDOWS NOTIFICATION DB
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _read_db_safe() -> list[tuple]:
     """
     Returns list of (notif_id, text) for new WhatsApp notifications.
@@ -90,7 +90,7 @@ def _read_db_safe() -> list[tuple]:
                 results.append((notif_id, text))
 
     except Exception as e:
-        pass   # DB might be temporarily locked — skip this poll cycle
+        pass   # DB might be temporarily locked â€” skip this poll cycle
     finally:
         if tmp and os.path.exists(tmp):
             try:
@@ -120,9 +120,9 @@ def _extract_text_from_payload(payload) -> str:
         return str(payload)[:200]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # 2. SEND REPLY VIA WHATSAPP DESKTOP APP
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _find_whatsapp_window():
     """Returns the WhatsApp Desktop window or None."""
     try:
@@ -143,7 +143,7 @@ def send_reply_via_desktop(text: str) -> bool:
     with _send_lock:
         wa_win = _find_whatsapp_window()
         if not wa_win:
-            # WhatsApp Desktop not running — launch it
+            # WhatsApp Desktop not running â€” launch it
             try:
                 wa_exe = os.path.expandvars(r'%LOCALAPPDATA%\WhatsApp\WhatsApp.exe')
                 if not os.path.exists(wa_exe):
@@ -205,9 +205,9 @@ def send_reply_via_desktop(text: str) -> bool:
             return False
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # 3. DEDUP HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _is_duplicate(notif_id: int, text: str) -> bool:
     """Returns True if this message was already processed."""
     if notif_id in _seen_notif_ids:
@@ -215,14 +215,14 @@ def _is_duplicate(notif_id: int, text: str) -> bool:
     h   = hashlib.md5(text.strip().lower().encode('utf-8', errors='replace')).hexdigest()
     now = time.time()
     if h in _seen_text_hash and (now - _seen_text_hash[h]) < 60:
-        return True   # same text within 60 seconds — skip
+        return True   # same text within 60 seconds â€” skip
     _seen_text_hash[h] = now
     return False
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # 4. PATCH BRIDGE'S SEND SO ALL ALERTS USE DESKTOP APP
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _patched_send(message: str, phone: str = None) -> bool:
     threading.Thread(
         target=send_reply_via_desktop, args=(message,), daemon=True
@@ -232,9 +232,9 @@ def _patched_send(message: str, phone: str = None) -> bool:
 bridge.send_whatsapp_message = _patched_send
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # 5. MAIN POLL LOOP
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _poll_loop():
     global _last_notif_id
 
@@ -253,7 +253,7 @@ def _poll_loop():
     except Exception:
         pass
 
-    print(f"[wa_desktop] Bridge ACTIVE — no Chrome, no popups.")
+    print(f"[wa_desktop] Bridge ACTIVE â€” no Chrome, no popups.")
     print(f"[wa_desktop] Listening on WhatsApp Desktop (last notif ID: {_last_notif_id})")
     print(f"[wa_desktop] Send a message to yourself on WhatsApp!\n")
 
@@ -268,7 +268,7 @@ def _poll_loop():
             safe = text.encode('ascii', 'ignore').decode()
             print(f"[phone >> jarvis] {safe}")
 
-            # Process in background thread — no spam because dedup already applied
+            # Process in background thread â€” no spam because dedup already applied
             def handle(t=text):
                 try:
                     reply = bridge.process_incoming_command(
@@ -284,9 +284,9 @@ def _poll_loop():
         time.sleep(POLL_INTERVAL)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # 6. PUBLIC API (for main.py integration)
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class WhatsAppDesktopBridge:
     def __init__(self):
         self._thread = None
@@ -309,7 +309,7 @@ class WhatsAppDesktopBridge:
 desktop_bridge = WhatsAppDesktopBridge()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if __name__ == "__main__":
     # Check dependencies
     missing = []
@@ -343,3 +343,4 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nStopped.")
+
