@@ -182,5 +182,5 @@ Restart and the command works immediately. That's it.
 
 ## Built by
 
-Piyush & Aditya — IIIT Kota, 2024 batch
+Piyush — IIIT Kota, 2024 batch
 GitHub: https://github.com/2024kucp1145-droid
