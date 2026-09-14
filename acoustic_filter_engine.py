@@ -29,11 +29,18 @@ try:
 except ImportError:
     sr = None
 
-_IS_WINDOWS = sys.platform.startswith("win")
-if _IS_WINDOWS:
-    import ctypes
-    class _LASTINPUTINFO(ctypes.Structure):
-        _fields_ = [('cbSize', ctypes.c_uint), ('dwTime', ctypes.c_uint)]
+# Cross-platform idle time via platform_compat
+try:
+    from platform_compat import get_idle_seconds as _get_idle_seconds
+    _COMPAT_OK = True
+except ImportError:
+    _COMPAT_OK = False
+    import sys as _sys
+    _IS_WINDOWS = _sys.platform.startswith("win")
+    if _IS_WINDOWS:
+        import ctypes
+        class _LASTINPUTINFO(ctypes.Structure):
+            _fields_ = [('cbSize', ctypes.c_uint), ('dwTime', ctypes.c_uint)]
 
 
 class AcousticFilterEngine:
@@ -56,15 +63,19 @@ class AcousticFilterEngine:
         """Returns elapsed seconds since last physical keyboard/mouse interaction."""
         if self._mock_idle_time is not None:
             return self._mock_idle_time
-        if _IS_WINDOWS:
-            try:
+        # Use cross-platform compat layer
+        if _COMPAT_OK:
+            return _get_idle_seconds()
+        # Fallback: Windows direct call (if platform_compat not importable)
+        try:
+            if _IS_WINDOWS:
                 info = _LASTINPUTINFO()
                 info.cbSize = ctypes.sizeof(_LASTINPUTINFO)
                 ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info))
                 elapsed_ms = ctypes.windll.kernel32.GetTickCount() - info.dwTime
                 return max(0.0, elapsed_ms / 1000.0)
-            except Exception:
-                return 999.0
+        except Exception:
+            pass
         return 999.0
 
     def is_user_actively_typing(self, threshold_seconds: float = 0.50) -> bool:

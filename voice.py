@@ -208,6 +208,15 @@ class Voice:
     _offline_engine = None
 
     def _speak_offline(self, text: str, emotion: str = "calm"):
+        # Try platform_compat espeak-ng path first (Linux)
+        try:
+            from platform_compat import offline_speak as _compat_speak, IS_LINUX
+            if IS_LINUX:
+                _compat_speak(text, rate=config.SPEECH_RATE)
+                return
+        except ImportError:
+            pass
+
         if not pyttsx3:
             print("[TTS engine available nahi hai]")
             return
@@ -236,6 +245,7 @@ class Voice:
         except Exception as e:
             print(f"[offline TTS error: {e}]")
             self._offline_engine = None  # next time naya ban jayega
+
         finally:
             if com_initialized:
                 import pythoncom
