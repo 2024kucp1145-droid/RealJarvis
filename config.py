@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 config.py
 =========
@@ -20,7 +20,7 @@ USER_NAME = "Piyush"                  # Jarvis tumhe kis naam se bulaye
 #   >>> python config.py set-password
 #
 # ye tumse password poochega aur hash yaha likh dega.
-PASSWORD_HASH = "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5"  # yaha auto-generate hoke aayega
+PASSWORD_HASH = ""  # Run: python config.py set-password  # yaha auto-generate hoke aayega
 
 FACE_VERIFICATION_ENABLED = False
 FACE_DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "owner_face.jpg")
@@ -51,7 +51,7 @@ STT_MODE = "auto"
 MIC_ENERGY_MIN = 40
 MIC_ENERGY_MAX = 450
 # In languages me try karega recognition (order matter karta hai - pehle wali
-# pehle try hoti hai). "en-IN" Hinglish/English dono kaafi achhe se pakड़ leta
+# pehle try hoti hai). "en-IN" Hinglish/English dono kaafi achhe se pakà¤¡à¤¼ leta
 # hai. Chaho toh aur languages add kar sakte ho, e.g. "ta-IN" (Tamil), "te-IN" (Telugu).
 RECOGNITION_LANGUAGES = ["en-IN", "hi-IN"]
 
@@ -64,8 +64,8 @@ PARALINGUISTIC_DETECTION_ENABLED = True   # Detects human emotional acoustics: Y
 
 # ---------------- EMAIL ----------------
 EMAIL_ENABLED = True
-EMAIL_ADDRESS = "2024kucp1145@iiitkota.ac.in"
-EMAIL_APP_PASSWORD = "uxcg tzzb ajbi mdqw"         # Gmail "App Password" (normal password nahi chalega)
+EMAIL_ADDRESS = "your@gmail.com"
+EMAIL_APP_PASSWORD = "xxxx xxxx xxxx xxxx"  # Get from myaccount.google.com/apppasswords         # Gmail "App Password" (normal password nahi chalega)
 IMAP_SERVER = "imap.gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -73,7 +73,7 @@ SMTP_PORT = 587
 # ---------------- MISC ----------------
 AI_ENABLED = True
 AI_PROVIDER = "gemini"
-GEMINI_API_KEY = "AQ.Ab8RN6IbtyH1EOqVOmuchQh_6AaWBBPEqN44z4pkDERqnHH4Gg"
+GEMINI_API_KEY = "your-gemini-api-key-here"  # Get from aistudio.google.com/apikey
 GEMINI_MODEL = "gemini-flash-lite-latest"
 BARGE_IN_THRESHOLD = 0.0018
 AI_MAX_TOKENS = 350       # kam tokens = AI response faster aata hai
