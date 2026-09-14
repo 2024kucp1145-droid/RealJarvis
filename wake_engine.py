@@ -53,6 +53,12 @@ try:
 except ImportError:
     _WINSOUND_AVAILABLE = False
 
+try:
+    from platform_compat import wake_chime as _compat_wake_chime, beep as _compat_beep
+    _COMPAT_BEEP = True
+except ImportError:
+    _COMPAT_BEEP = False
+
 
 class WakeEngine:
     """Manages high-speed, on-device wake-word detection and brain handshakes."""
@@ -109,8 +115,9 @@ class WakeEngine:
     def _play_wake_chime(self):
         """Plays a gentle, futuristic high-tech activation chime."""
         try:
-            if _WINSOUND_AVAILABLE:
-                # 880Hz (A5) -> 1320Hz (E6) quick ascending chime
+            if _COMPAT_BEEP:
+                _compat_wake_chime()
+            elif _WINSOUND_AVAILABLE:
                 winsound.Beep(880, 70)
                 winsound.Beep(1320, 90)
         except Exception:

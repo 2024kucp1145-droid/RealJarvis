@@ -160,12 +160,16 @@ SIRF NOTES LIKHO. Koi extra baat nahi."""
     # ------------------------------------------------------- helpers
     @staticmethod
     def _find_unicode_font():
-        candidates = [
-            "C:/Windows/Fonts/nirmala.ttf",      # Hindi support
-            "C:/Windows/Fonts/segoeui.ttf",
-            "C:/Windows/Fonts/arial.ttf",
-            "C:/Windows/Fonts/calibri.ttf",
-        ]
+        try:
+            from platform_compat import get_font_paths
+            candidates = get_font_paths()
+        except ImportError:
+            candidates = [
+                "C:/Windows/Fonts/nirmala.ttf",
+                "C:/Windows/Fonts/segoeui.ttf",
+                "C:/Windows/Fonts/arial.ttf",
+                "C:/Windows/Fonts/calibri.ttf",
+            ]
         for p in candidates:
             if os.path.exists(p):
                 return p

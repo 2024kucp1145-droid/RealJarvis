@@ -45,3 +45,10 @@ moviepy                 # video se audio nikaalna
 openai-whisper          # audio transcribe (local, free)
 fpdf2                   # PDF banana
 imageio[ffmpeg]         # ffmpeg backend (moviepy ke saath)
+# --- Linux-only dependencies -----------------------------------------------
+# Install these on Linux instead of the Windows-only packages above:
+#   sudo apt install espeak-ng beep xdotool wmctrl xprintidle portaudio19-dev
+#   pip install speechrecognition pygame edge-tts google-generativeai psutil
+#   pip install pillow requests selenium pyautogui opencv-python mediapipe
+#
+# NOTE: pywin32 and pyttsx3 are Windows-only — skip on Linux

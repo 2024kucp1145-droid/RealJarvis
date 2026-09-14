@@ -153,7 +153,11 @@ def volume_unmute(voice, **kw):
 def lock_pc(voice, **kw):
     try:
         voice.speak("Lock kar rahi hoon.")
-        subprocess.run(["rundll32.exe", "user32.dll,LockWorkStation"], check=True)
+        try:
+            from platform_compat import lock_screen
+            lock_screen()
+        except ImportError:
+            subprocess.run(["rundll32.exe", "user32.dll,LockWorkStation"], check=True)
     except Exception as e:
         voice.speak("Lock karne mein error aa gaya.")
         print(f"[lock_pc error: {e}]")
@@ -162,7 +166,11 @@ def lock_pc(voice, **kw):
 def shutdown_pc(voice, **kw):
     try:
         voice.speak("Laptop band kar rahi hoon, bye!")
-        subprocess.run(["shutdown", "/s", "/t", "5"], check=True)
+        try:
+            from platform_compat import shutdown_system
+            shutdown_system()
+        except ImportError:
+            subprocess.run(["shutdown", "/s", "/t", "5"], check=True)
     except Exception as e:
         voice.speak("Shutdown karne mein error aa gaya.")
         print(f"[shutdown_pc error: {e}]")
@@ -171,7 +179,11 @@ def shutdown_pc(voice, **kw):
 def restart_pc(voice, **kw):
     try:
         voice.speak("Restart kar rahi hoon.")
-        subprocess.run(["shutdown", "/r", "/t", "5"], check=True)
+        try:
+            from platform_compat import restart_system
+            restart_system()
+        except ImportError:
+            subprocess.run(["shutdown", "/r", "/t", "5"], check=True)
     except Exception as e:
         voice.speak("Restart karne mein error aa gaya.")
         print(f"[restart_pc error: {e}]")
@@ -180,10 +192,15 @@ def restart_pc(voice, **kw):
 def sleep_pc(voice, **kw):
     try:
         voice.speak("Sleep mode me ja rahe hain.")
-        subprocess.run(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"], check=True)
+        try:
+            from platform_compat import sleep_system
+            sleep_system()
+        except ImportError:
+            subprocess.run(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"], check=True)
     except Exception as e:
         voice.speak("Sleep mode mein jaane mein error aa gaya.")
         print(f"[sleep_pc error: {e}]")
+
 
 
 def show_desktop(voice, **kw):
