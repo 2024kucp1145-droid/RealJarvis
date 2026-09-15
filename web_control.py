@@ -10,17 +10,24 @@ web application, game, ya form control karta hai bina haath lagaye.
 import time
 import re
 import threading
-import pyautogui
-import vision
+
+try:
+    import pyautogui
+    pyautogui.PAUSE = 0.02
+    pyautogui.FAILSAFE = True  # Cursor corner me le jane se emergency stop
+except ImportError:
+    pyautogui = None
+    print("[web_control] pyautogui not installed — web automation disabled. Install: pip install pyautogui")
+
+try:
+    import vision
+except ImportError:
+    vision = None
 
 try:
     import pyperclip
 except ImportError:
     pyperclip = None
-
-# Ultra-fast automation delay
-pyautogui.PAUSE = 0.02
-pyautogui.FAILSAFE = True  # Cursor corner me le jane se emergency stop
 
 
 def _pct_to_pixel(x_pct, y_pct):
