@@ -88,6 +88,7 @@ AVAILABLE TOOLS:
 - 'send_whatsapp': { "phone": "number", "message": "text" }
 - 'learn_new_skill': { "task_description": "detailed task" }
 - 'propose_daily_skills': {}
+- 'approve_skill': { "skill_number": 1 }
 - 'none': (Use when user is chatting, asking questions, discussing concepts, coding help, or general talk)
 
 Always maintain a witty, capable, and respectful JARVIS personality. Output ONLY valid JSON.
@@ -184,6 +185,8 @@ class AgenticCotBrain:
                     raw_json = re.sub(r"^```(?:json)?\s*", "", raw_json, flags=re.I)
                     raw_json = re.sub(r"\s*```$", "", raw_json)
                 data = json.loads(raw_json.strip())
+                if isinstance(data, list):
+                    data = data[0] if data else {}
 
                 thought = data.get("thought", "Autonomous reasoning completed.")
                 plan = data.get("plan", [])
@@ -496,11 +499,14 @@ Respond in JSON:
                     return True
 
             elif tool == "propose_daily_skills":
-                import self_evolution_engine
-                proposals = self_evolution_engine.evolution_engine.propose_candidate_skills()
-                if v:
-                    v.speak(f"Boss, maine naye automation skills prepare kiye hain review ke liye.")
+                import skill_scout_engine
+                skill_scout_engine.scout_engine.present_proposals_vocally(voice=v, gui=getattr(jarvis_instance, "gui", None))
                 return True
+
+            elif tool == "approve_skill":
+                import skill_scout_engine
+                idx = int(args.get("skill_number", 1))
+                return skill_scout_engine.scout_engine.approve_skill_by_index(idx, voice=v)
 
         except Exception as e:
             print(f"[agentic_cot_brain] Tool execution error for '{tool}': {e}")
@@ -541,6 +547,8 @@ Respond in JSON:
 
 
 cot_brain = AgenticCotBrain()
+
+
 
 
 
