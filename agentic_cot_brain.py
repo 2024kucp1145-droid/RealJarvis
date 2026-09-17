@@ -87,6 +87,7 @@ AVAILABLE TOOLS:
 - 'avengers_diagnostics': {}
 - 'send_whatsapp': { "phone": "number", "message": "text" }
 - 'learn_new_skill': { "task_description": "detailed task" }
+- 'computer_use': { "goal": "autonomous screen automation goal like fill form, click element, extract table" }
 - 'propose_daily_skills': {}
 - 'approve_skill': { "skill_number": 1 }
 - 'none': (Use when user is chatting, asking questions, discussing concepts, coding help, or general talk)
@@ -498,6 +499,18 @@ Respond in JSON:
                     self_evolution_engine.evolution_engine.triage_missing_skill(task)
                     return True
 
+            # 13. AUTONOMOUS MULTIMODAL COMPUTER USE
+            elif tool == "computer_use":
+                goal = args.get("goal", "")
+                if goal:
+                    import web_control
+                    agent = web_control.AutonomousWebAgent(
+                        voice=v,
+                        ai=getattr(jarvis_instance, "ai", None)
+                    )
+                    agent.run_goal(goal)
+                    return True
+
             elif tool == "propose_daily_skills":
                 import skill_scout_engine
                 skill_scout_engine.scout_engine.present_proposals_vocally(voice=v, gui=getattr(jarvis_instance, "gui", None))
@@ -547,6 +560,7 @@ Respond in JSON:
 
 
 cot_brain = AgenticCotBrain()
+
 
 
 

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 ai_brain.py
 ===========
@@ -33,7 +33,7 @@ _EMOTION_TAG_RE = re.compile(r"^\s*\[(\w+)\]\s*")
 
 # --------------------------------------------------------------------------
 # FUNCTION CALLING: fixed keyword-matching (command_data.py) sirf EXACT
-# phrasing pakड़ta hai ("chrome kholo" match hota hai, "open chrome" nahi).
+# phrasing pakà¤¡à¤¼ta hai ("chrome kholo" match hota hai, "open chrome" nahi).
 # Jab wo match na kare, iske bajaye AI khud "samajhta" hai ki iska matlab
 # kya hai - chahe kisi bhi tarike se bola ho - aur seedha sahi function call
 # kar deta hai. Isse "bounded/rigid" wali problem fix hoti hai.
@@ -330,9 +330,9 @@ EXISTING CODE:
 {existing_code}
 
 PLATFORM DETECTION:
-- Agar problem mein "class Solution" ya function signature diya hai → LeetCode style
-- Agar problem mein bas input/output format hai, T test cases hain → CodeChef style
-- Agar problem simple hai with just main logic → CodeChef style
+- Agar problem mein "class Solution" ya function signature diya hai â†’ LeetCode style
+- Agar problem mein bas input/output format hai, T test cases hain â†’ CodeChef style
+- Agar problem simple hai with just main logic â†’ CodeChef style
 
 FORMAT RULES (ZAROORI):
 1. CodeChef ke liye EXACTLY aisa format hona chahiye:
@@ -598,11 +598,11 @@ COORDINATES: x%, y% (screen width/height ka percentage, 0% se 100%. Center = 50%
 VALUE: type ke liye text (agar type nahi hai toh blank chhodo)
 
 Examples:
-- "like this reel" → ACTION: click, TARGET: heart button, COORDINATES: 85%, 55%
-- "stop song" → ACTION: click, TARGET: pause button, COORDINATES: 50%, 85%
-- "contact number do" → ACTION: read, TARGET: phone number, VALUE: (blank)
-- "scroll down" → ACTION: scroll_down, TARGET: page, COORDINATES: 50%, 50%
-- "email batao" → ACTION: read, TARGET: email address, VALUE: (blank)
+- "like this reel" â†’ ACTION: click, TARGET: heart button, COORDINATES: 85%, 55%
+- "stop song" â†’ ACTION: click, TARGET: pause button, COORDINATES: 50%, 85%
+- "contact number do" â†’ ACTION: read, TARGET: phone number, VALUE: (blank)
+- "scroll down" â†’ ACTION: scroll_down, TARGET: page, COORDINATES: 50%, 50%
+- "email batao" â†’ ACTION: read, TARGET: email address, VALUE: (blank)
 
 Agar screen pe command possible nahi:
 ACTION: none
@@ -692,14 +692,35 @@ REASON: [Why this step is needed]"""
 
         try:
             if self.provider == "gemini":
-                response = self._gemini_client.models.generate_content(
-                    model=config.GEMINI_MODEL,
-                    contents=[image, f"Determine next step for goal: {goal}"],
-                    config=genai_types.GenerateContentConfig(
-                        system_instruction=AUTONOMOUS_STEP_PROMPT,
-                        max_output_tokens=350,
-                    ),
-                )
+                import time
+                models_to_try = [getattr(config, "GEMINI_MODEL", "gemini-flash-latest"), "gemini-flash-latest", "gemma-4-26b-a4b-it", "gemma-4-31b-it"]
+                seen_m = set()
+                models_to_try = [m for m in models_to_try if m and not (m in seen_m or seen_m.add(m))]
+                response = None
+
+                for m in models_to_try:
+                    for retry_i in range(2):
+                        try:
+                            response = self._gemini_client.models.generate_content(
+                                model=m,
+                                contents=[image, f"Determine next step for goal: {goal}"],
+                                config=genai_types.GenerateContentConfig(
+                                    system_instruction=AUTONOMOUS_STEP_PROMPT,
+                                    max_output_tokens=450,
+                                ),
+                            )
+                            if response and response.text:
+                                break
+                        except Exception as e:
+                            if "503" in str(e) and retry_i == 0:
+                                time.sleep(1.2)
+                                continue
+                    if response and response.text:
+                        break
+
+                if not response or not response.text:
+                    return None
+
                 raw = (response.text or "").strip()
                 return self._parse_autonomous_step(raw)
             elif self.provider == "anthropic" and anthropic:
@@ -876,7 +897,7 @@ Instructions:
                     emotion_extracted = True
 
                 while True:
-                    m = re.search(r"[.!?।]\s+", buffer)
+                    m = re.search(r"[.!?à¥¤]\s+", buffer)
                     if not m:
                         break
                     end = m.end()
