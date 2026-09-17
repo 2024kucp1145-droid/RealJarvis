@@ -221,6 +221,45 @@ class SelfEvolutionEngine:
         print(f"[self_evolution] [*] Unlearned Actionable Intent detected: '{safe_query}'")
         return self.ask_learning_permission(query, context=context)
 
+    def learn_skill_direct(self, query: str, context: str = "", notify_voice: bool = True) -> bool:
+        """
+        Directly starts learning and synthesizing a skill without asking for permission
+        (e.g., when the user already explicitly approved it via scout proposal or slash command).
+        """
+        clean_q = query.strip()
+        task_id = f"task_{int(time.time())}"
+        snapshot = context_sniffer.sniffer.capture_snapshot()
+
+        if notify_voice:
+            ack_msg = f"Theek hai boss! Skill synthesis shuru kar rahi hoon. Ek minute dijiye..."
+            if self.gui and hasattr(self.gui, "show_message"):
+                try:
+                    self.gui.show_message(f"🧬 Synthesizing '{clean_q[:30]}...' in Sandbox", ms=5000)
+                except Exception:
+                    pass
+            if self.speak_fn:
+                self.speak_fn(ack_msg, emotion="excited")
+            elif self.voice:
+                self.voice.speak(ack_msg, emotion="excited")
+
+        with self._lock:
+            self._active_learning_tasks[task_id] = {
+                "query": clean_q,
+                "context": context,
+                "snapshot": snapshot,
+                "status": "in_progress",
+                "started_at": time.time()
+            }
+
+        worker = threading.Thread(
+            target=self._background_learning_pipeline,
+            args=(task_id, clean_q, context, snapshot),
+            daemon=True,
+            name=f"self_evolve_{task_id}"
+        )
+        worker.start()
+        return True
+
     def _background_learning_pipeline(self, task_id: str, query: str, context: str, snapshot: context_sniffer.DesktopContextSnapshot = None):
         """
         Background learning pipeline orchestrator.

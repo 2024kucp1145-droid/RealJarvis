@@ -482,10 +482,19 @@ class Jarvis:
         try:
             if self_evolution_engine.evolution_engine.has_pending_permission():
                 text_lower = text.lower()
-                if any(w in text_lower for w in ("haan", "yes", "seekh lo", "banao", "kar do", "theek hai", "sure", "ok", "kardo", "bilkul")):
+                affirmative = (
+                    "haan", "ha", "yes", "yep", "yeah", "seekh lo", "seekho",
+                    "banao", "banaa do", "bana do", "banado", "bana doon", "bana de", "banaa",
+                    "kar do", "kardo", "karo", "theek hai", "thik hai", "thik h", "theek h",
+                    "sure", "ok", "okay", "bilkul", "start", "approve", "allow", "proceed", "go ahead", "chalo", "sahi hai"
+                )
+                negative = (
+                    "nahi", "cancel", "mat karo", "rehne do", "no", "stop", "chhod do", "mat banao", "dont", "don't", "reject"
+                )
+                if any(w in text_lower for w in affirmative):
                     self_evolution_engine.evolution_engine.confirm_learning_permission(True)
                     return True
-                elif any(w in text_lower for w in ("nahi", "cancel", "mat karo", "rehne do", "no", "stop")):
+                elif any(w in text_lower for w in negative):
                     self_evolution_engine.evolution_engine.confirm_learning_permission(False)
                     return True
         except Exception as e:
@@ -496,10 +505,16 @@ class Jarvis:
             import universal_predictive_copilot
             if universal_predictive_copilot.predictive_copilot.has_pending_prediction():
                 text_lower = text.lower()
-                if any(w in text_lower for w in ("haan", "yes", "kar do", "likh do", "theek hai", "sure", "ok", "kardo", "bilkul", "execute karo")):
+                affirmative = (
+                    "haan", "ha", "yes", "yep", "yeah", "kar do", "kardo", "karo", "likh do",
+                    "theek hai", "thik hai", "sure", "ok", "okay", "bilkul", "execute karo",
+                    "banao", "bana do", "banado", "banaa do", "chalo"
+                )
+                negative = ("nahi", "cancel", "mat karo", "rehne do", "no", "stop", "chhod do")
+                if any(w in text_lower for w in affirmative):
                     universal_predictive_copilot.predictive_copilot.execute_pending_prediction(voice=self.voice, gui=self.gui)
                     return True
-                elif any(w in text_lower for w in ("nahi", "cancel", "mat karo", "rehne do", "no", "stop")):
+                elif any(w in text_lower for w in negative):
                     universal_predictive_copilot.predictive_copilot.clear_pending()
                     self.speak("Theek hai boss, step cancel kar diya.")
                     return True

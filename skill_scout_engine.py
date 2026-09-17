@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 skill_scout_engine.py
 =====================
@@ -253,12 +253,18 @@ Output JSON list of objects matching:
             else:
                 print(f"[JARVIS VOCAL]: {ack}")
 
-            # Trigger Self-Evolution Synthesis
+            # Trigger Self-Evolution Synthesis Directly (User already approved)
             if self_evolution_engine and hasattr(self_evolution_engine, "evolution_engine"):
                 try:
-                    self_evolution_engine.evolution_engine.triage_missing_skill(
-                        f"Automate {target.title}: {target.description}. {target.technical_approach}"
-                    )
+                    if hasattr(self_evolution_engine.evolution_engine, "learn_skill_direct"):
+                        self_evolution_engine.evolution_engine.learn_skill_direct(
+                            f"Automate {target.title}: {target.description}. {target.technical_approach}",
+                            notify_voice=False
+                        )
+                    else:
+                        self_evolution_engine.evolution_engine.triage_missing_skill(
+                            f"Automate {target.title}: {target.description}. {target.technical_approach}"
+                        )
                     target.status = "synthesized"
                     self.save_proposals()
                     return True
