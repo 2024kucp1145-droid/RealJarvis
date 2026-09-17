@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 self_correction_engine.py  (Phase 9: Automated Self-Correction Loop / Reflection & Repair)
 ==========================================================================================
@@ -10,6 +10,7 @@ Supports up to 3 iterative repair cycles.
 import sys
 import os
 import re
+import config
 from typing import Tuple, Optional, Dict, Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -78,7 +79,32 @@ class SelfCorrectionEngine:
         return False, current_code, max_retries, f"Self-correction failed after {max_retries} attempts. Last error: {last_error}"
 
     def _synthesize_repair(self, spec: SkillSpec, code: str, error: str) -> str:
-        """Invokes LLM repair or applies algorithmic heuristic fixes."""
+        """Invokes LLM repair via GenAI cascade or applies algorithmic heuristic fixes."""
+        api_key = getattr(config, "GEMINI_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
+        if api_key:
+            try:
+                from google import genai
+                client = genai.Client(api_key=api_key)
+                prompt = (
+                    f"{REPAIR_SYSTEM_PROMPT}\n\n"
+                    f"SKILL: {spec.skill_name} ({spec.skill_id})\n"
+                    f"DESCRIPTION: {spec.description}\n\n"
+                    f"FAILING CODE:\n```python\n{code}\n```\n\n"
+                    f"ERROR TRACEBACK / FAILURE REASON:\n{error}\n\n"
+                    f"Please provide the corrected, complete Python module in a single ```python block."
+                )
+                for model_name in ["gemini-flash-latest", "gemma-4-26b-a4b-it", "gemma-4-31b-it"]:
+                    try:
+                        resp = client.models.generate_content(model=model_name, contents=prompt)
+                        if resp and resp.text:
+                            m = re.search(r"```(?:python)?\s*(.*?)\s*```", resp.text, re.DOTALL)
+                            if m and "def execute" in m.group(1):
+                                return m.group(1).strip()
+                    except Exception:
+                        continue
+            except Exception as e:
+                print(f"[self_correction GenAI cascade error: {e}]")
+
         if self.ai and hasattr(self.ai, "ask"):
             try:
                 prompt = (
@@ -125,3 +151,6 @@ class SelfCorrectionEngine:
 
 
 correction_engine = SelfCorrectionEngine()
+
+
+

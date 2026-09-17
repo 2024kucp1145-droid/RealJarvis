@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 code_synthesizer.py  (Phase 4: Autonomous Python Code Synthesizer Engine)
 ==========================================================================
@@ -22,6 +22,7 @@ import re
 import sys
 import json
 import textwrap
+import config
 from typing import Optional, Dict, Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -37,7 +38,7 @@ STRICT CODE GENERATION RULES:
 2. The module MUST define a top-level function:
    def execute(context: dict = None) -> dict:
        '''Returns {"success": bool, "message": str, "data": any}'''
-3. The "message" field in the return dictionary MUST be a clear, natural Hinglish confirmation of what was done (e.g. "iPhone 15 ka Flipkart par price ₹69,999 mila.").
+3. The "message" field in the return dictionary MUST be a clear, natural Hinglish confirmation of what was done (e.g. "iPhone 15 ka Flipkart par price â‚¹69,999 mila.").
 4. Use standard Python libraries or popular robust packages:
    - For Web/Data: requests, bs4, urllib, json, re
    - For Desktop UI: pyautogui, pyperclip, win32gui, psutil
@@ -58,7 +59,12 @@ class CodeSynthesizer:
         Synthesizes executable Python code for the given SkillSpec.
         Uses AI Brain if available, otherwise generates a resilient algorithmic template.
         """
-        # 1. Try AI-powered synthesis if AI brain is connected
+        # 1. Try direct Google GenAI cascade synthesis
+        genai_code = self._synthesize_with_genai(spec, snapshot)
+        if genai_code and "def execute" in genai_code:
+            return self._clean_code_block(genai_code)
+
+        # 2. Try connected AI brain if available
         if self.ai and hasattr(self.ai, "ask"):
             try:
                 ai_code = self._synthesize_with_ai(spec, snapshot)
@@ -67,8 +73,41 @@ class CodeSynthesizer:
             except Exception as e:
                 print(f"[code_synthesizer AI error: {e}] Falling back to template synthesis.")
 
-        # 2. Resilient Template-based synthesis
+        # 3. Resilient Template-based synthesis
         return self._synthesize_template(spec, snapshot)
+
+    def _synthesize_with_genai(self, spec: SkillSpec, snapshot: Optional[DesktopContextSnapshot] = None) -> Optional[str]:
+        api_key = getattr(config, "GEMINI_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
+        if not api_key:
+            return None
+        try:
+            from google import genai
+            client = genai.Client(api_key=api_key)
+            prompt_parts = [
+                f"GOAL: Write a self-contained Python automation module for Jarvis.",
+                f"SKILL ID: {spec.skill_id}",
+                f"SKILL NAME: {spec.skill_name}",
+                f"DESCRIPTION: {spec.description}",
+                f"CATEGORY: {spec.category}",
+                f"TARGET APP / DOMAIN: {spec.target_app}",
+                f"TRIGGERS: {chr(44).join(spec.triggers)}"
+            ]
+            if snapshot:
+                prompt_parts.append("\n" + snapshot.to_markdown_summary())
+            full_prompt = f"{SYNTHESIS_SYSTEM_PROMPT}\n\n" + "\n".join(prompt_parts)
+
+            for model_name in ["gemini-flash-latest", "gemma-4-26b-a4b-it", "gemma-4-31b-it"]:
+                try:
+                    resp = client.models.generate_content(model=model_name, contents=full_prompt)
+                    if resp and resp.text:
+                        code = self._clean_code_block(resp.text)
+                        if "def execute" in code:
+                            return code
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"[code_synthesizer GenAI error: {e}]")
+        return None
 
     def _synthesize_with_ai(self, spec: SkillSpec, snapshot: Optional[DesktopContextSnapshot] = None) -> str:
         """Invokes LLM with full context snapshot to produce specialized code."""
@@ -111,9 +150,9 @@ class CodeSynthesizer:
             return match.group(1).strip()
         return text.strip()
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # CATEGORY TEMPLATES
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _template_web_automation(self, spec: SkillSpec, snapshot: Optional[DesktopContextSnapshot]) -> str:
         return textwrap.dedent(f"""\
             # -*- coding: utf-8 -*-
@@ -264,3 +303,7 @@ class CodeSynthesizer:
 
 
 synthesizer = CodeSynthesizer()
+
+
+
+

@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
-whatsapp_web_listener.py  (v2 — Fixed 2-Way Bridge)
+whatsapp_web_listener.py  (v2 â€” Fixed 2-Way Bridge)
 =====================================================
 REAL 2-way WhatsApp bridge using Selenium.
 
 HOW IT WORKS:
-  Phone → "Message Yourself" → WhatsApp Web (Selenium sees it)
-                                          → Jarvis processes command
-                                          → Selenium types & sends reply in WhatsApp Web
-                                          → Reply appears on your PHONE automatically
+  Phone â†’ "Message Yourself" â†’ WhatsApp Web (Selenium sees it)
+                                          â†’ Jarvis processes command
+                                          â†’ Selenium types & sends reply in WhatsApp Web
+                                          â†’ Reply appears on your PHONE automatically
                                           (WhatsApp Web & Phone are always synced)
 
 FIXES in v2:
@@ -48,7 +48,7 @@ import whatsapp_mobile_bridge
 PROFILE_DIR = os.path.join(os.path.dirname(__file__), "data", "chrome_whatsapp_profile")
 os.makedirs(PROFILE_DIR, exist_ok=True)
 
-# ─── WhatsApp Web Selectors (tested Aug 2026) ─────────────────────────────────
+# â”€â”€â”€ WhatsApp Web Selectors (tested Aug 2026) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Message input box
 SEL_INPUT = 'div[contenteditable="true"][data-tab="10"]'
 
@@ -73,11 +73,11 @@ class WhatsAppWebListener:
         self._seen_ids = set()          # data-id values already processed
         self._boot_ids = set()          # IDs present at startup (skip these)
         self.bridge   = whatsapp_mobile_bridge.bridge
-        self.my_phone = self.bridge.master_phone   # "+917014093732"
+        self.my_phone = self.bridge.master_phone
 
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # 1. BUILD CHROME DRIVER
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_driver(self) -> webdriver.Chrome:
         opts = Options()
         opts.add_argument(f"--user-data-dir={PROFILE_DIR}")
@@ -99,9 +99,9 @@ class WhatsAppWebListener:
         )
         return drv
 
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # 2. OPEN ME CHAT
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _open_me_chat(self):
         clean = self.my_phone.replace("+", "").replace(" ", "")
         url   = f"https://web.whatsapp.com/send?phone={clean}"
@@ -116,14 +116,14 @@ class WhatsAppWebListener:
             WebDriverWait(self.driver, 180).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, SEL_INPUT))
             )
-            print("[wa_listener] ✅ ME chat loaded! Jarvis is now listening to your messages.")
+            print("[wa_listener] âœ… ME chat loaded! Jarvis is now listening to your messages.")
         except TimeoutException:
-            print("[wa_listener] ❌ Could not load WhatsApp Web. Check internet / QR scan.")
+            print("[wa_listener] âŒ Could not load WhatsApp Web. Check internet / QR scan.")
             raise
 
-    # ──────────────────────────────────────────────────────────────────
-    # 3. SEND REPLY  (clipboard method — 100% reliable)
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # 3. SEND REPLY  (clipboard method â€” 100% reliable)
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def send_reply(self, text: str):
         try:
             wait = WebDriverWait(self.driver, 10)
@@ -131,20 +131,20 @@ class WhatsAppWebListener:
             inp.click()
             time.sleep(0.3)
 
-            # Copy text to clipboard and paste — avoids emoji encoding issues
+            # Copy text to clipboard and paste â€” avoids emoji encoding issues
             pyperclip.copy(text)
             time.sleep(0.2)
             inp.send_keys(Keys.CONTROL, 'v')
             time.sleep(0.4)
             inp.send_keys(Keys.ENTER)
             time.sleep(0.3)
-            print(f"[wa_listener] ✅ Reply sent: {text[:70].encode('ascii','ignore').decode()}...")
+            print(f"[wa_listener] âœ… Reply sent: {text[:70].encode('ascii','ignore').decode()}...")
         except Exception as e:
             print(f"[wa_listener] send_reply error: {e}")
 
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # 4. READ NEW MESSAGES
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _get_new_messages(self) -> list:
         """Returns list of (data_id, text) for messages not yet seen."""
         results = []
@@ -173,9 +173,9 @@ class WhatsAppWebListener:
             pass
         return results
 
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # 5. MAIN POLLING LOOP
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _poll_loop(self):
         # Seed existing messages so we don't re-process old ones
         time.sleep(3)
@@ -188,7 +188,7 @@ class WhatsAppWebListener:
             except Exception:
                 pass
         print(f"[wa_listener] {len(self._boot_ids)} existing messages ignored.")
-        print("[wa_listener] 👂 Listening... Send any message to yourself on WhatsApp!")
+        print("[wa_listener] ðŸ‘‚ Listening... Send any message to yourself on WhatsApp!")
 
         while self.running:
             try:
@@ -199,7 +199,7 @@ class WhatsAppWebListener:
                     print(f"[wa_listener] << Received: {safe}")
 
                     # Skip if it's already a reply from Jarvis (outgoing msg that we sent)
-                    # We detect this by checking data-id prefix — outgoing have "true_" prefix
+                    # We detect this by checking data-id prefix â€” outgoing have "true_" prefix
                     if data_id.startswith("true_"):
                         continue
 
@@ -223,9 +223,9 @@ class WhatsAppWebListener:
 
             time.sleep(2.5)   # check every 2.5 seconds
 
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # 6. PUBLIC API
-    # ──────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def start(self):
         if self.running:
             return
@@ -266,17 +266,17 @@ class WhatsAppWebListener:
 listener = WhatsAppWebListener()
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if __name__ == "__main__":
     print("=" * 60)
-    print("  JARVIS — WhatsApp Web 2-Way Listener  (v2)")
+    print("  JARVIS â€” WhatsApp Web 2-Way Listener  (v2)")
     print(f"  ME Chat Number: {listener.my_phone}")
     print("=" * 60)
     print()
     print("  STEPS:")
     print("  1. Chrome will open automatically")
-    print("  2. If first time → SCAN QR CODE with your phone")
-    print("     (WhatsApp → 3 dots → Linked Devices → Link a Device)")
+    print("  2. If first time â†’ SCAN QR CODE with your phone")
+    print("     (WhatsApp â†’ 3 dots â†’ Linked Devices â†’ Link a Device)")
     print("  3. Send any message to YOURSELF on WhatsApp phone")
     print("  4. Jarvis will process and REPLY on your phone!")
     print()
@@ -290,3 +290,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         listener.stop()
         print("\nStopped.")
+
