@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 system_commands.py
 ===================
@@ -373,7 +373,7 @@ def bluetooth_off(voice, **kw):
 
 
 
-# Known app aliases — koi bhi naam bolo, sahi app khul jata hai
+# Known app aliases â€” koi bhi naam bolo, sahi app khul jata hai
 _APP_ALIASES = {
     "antigravity": r"C:\Users\User\.gemini\antigravity\antigravity.exe",
     "jarvis": r"python C:\RealJarvis_v2\RealJarvis\main.py",
@@ -436,7 +436,7 @@ def _find_startmenu_shortcut(name: str):
 
 def open_any_app(voice, name="", **kw):
     if not name:
-        voice.speak("Kaunsa app kholu, naam batayein?")
+        if voice and hasattr(voice, "speak"): voice.speak("Kaunsa app kholu, naam batayein?")
         return
 
     safe_name = re.sub(r'[\"&|><`;]', '', name).strip()
@@ -453,7 +453,7 @@ def open_any_app(voice, name="", **kw):
                 subprocess.Popen(f'start "" "{cmd_val}"', shell=True)
             else:
                 subprocess.Popen(f'start "" {cmd_val}', shell=True)
-            voice.speak(f"{safe_name} khol diya.")
+            if voice and hasattr(voice, "speak"): voice.speak(f"{safe_name} khol diya.")
             return
         except Exception as e:
             print(f"[open_any_app alias error: {e}]")
@@ -464,7 +464,7 @@ def open_any_app(voice, name="", **kw):
         print(f"[open_any_app] Found in PATH: {which_path}")
         try:
             subprocess.Popen(f'start "" "{which_path}"', shell=True)
-            voice.speak(f"{safe_name} khol diya.")
+            if voice and hasattr(voice, "speak"): voice.speak(f"{safe_name} khol diya.")
             return
         except Exception as e:
             print(f"[open_any_app which error: {e}]")
@@ -475,7 +475,7 @@ def open_any_app(voice, name="", **kw):
         if lnk_path:
             print(f"[open_any_app] Start Menu match: {lnk_path}")
             os.startfile(lnk_path)
-            voice.speak(f"{safe_name} khol diya.")
+            if voice and hasattr(voice, "speak"): voice.speak(f"{safe_name} khol diya.")
             return
     except Exception as e:
         print(f"[open_any_app lnk error: {e}]")
@@ -484,9 +484,9 @@ def open_any_app(voice, name="", **kw):
     print(f"[open_any_app] Direct start fallback: '{safe_name}'")
     try:
         subprocess.Popen(f'start "" "{safe_name}"', shell=True)
-        voice.speak(f"{safe_name} kholne ki koshish ki.")
+        if voice and hasattr(voice, "speak"): voice.speak(f"{safe_name} kholne ki koshish ki.")
     except Exception as e:
-        voice.speak(f"Sorry, {safe_name} nahi khol paayi.")
+        if voice and hasattr(voice, "speak"): voice.speak(f"Sorry, {safe_name} nahi khol paayi.")
         print(f"[open_any_app error: {e}]")
 
 
