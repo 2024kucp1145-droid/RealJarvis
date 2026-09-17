@@ -87,7 +87,7 @@ class SkillSelectionModal:
 
         # Top Header
         header_frame = tk.Frame(self.win, bg=BG_COLOR)
-        header_frame.pack(fill="x", padx=18, pady=(16, 8))
+        header_frame.pack(side="top", fill="x", padx=18, pady=(16, 8))
 
         title_lbl = tk.Label(
             header_frame,
@@ -107,9 +107,45 @@ class SkillSelectionModal:
         )
         sub_lbl.pack(anchor="w", pady=(2, 0))
 
-        # Scrollable List Container
+        # Bottom Action Bar (Packed FIRST with side='bottom' so it is ALWAYS pinned at the bottom)
+        action_bar = tk.Frame(self.win, bg=BG_COLOR)
+        action_bar.pack(side="bottom", fill="x", padx=18, pady=(10, 16))
+
+        cancel_btn = tk.Button(
+            action_bar,
+            text="Cancel",
+            font=("Segoe UI", 9, "bold"),
+            bg=BTN_CANCEL_BG,
+            fg=TEXT_PRIMARY,
+            activebackground="#475569",
+            activeforeground=TEXT_PRIMARY,
+            bd=0,
+            padx=16,
+            pady=7,
+            cursor="hand2",
+            command=self._on_cancel
+        )
+        cancel_btn.pack(side="right", padx=(8, 0))
+
+        ok_btn = tk.Button(
+            action_bar,
+            text="OK (Learn Selected)",
+            font=("Segoe UI", 9, "bold"),
+            bg=BTN_OK_BG,
+            fg=TEXT_PRIMARY,
+            activebackground="#0369A1",
+            activeforeground=TEXT_PRIMARY,
+            bd=0,
+            padx=18,
+            pady=7,
+            cursor="hand2",
+            command=lambda: self._on_ok(proposals, on_approve_callback)
+        )
+        ok_btn.pack(side="right")
+
+        # Scrollable List Container (Fills remaining space in the middle)
         container = tk.Frame(self.win, bg=BG_COLOR)
-        container.pack(fill="both", expand=True, padx=18, pady=6)
+        container.pack(side="top", fill="both", expand=True, padx=18, pady=6)
 
         canvas = tk.Canvas(container, bg=BG_COLOR, highlightthickness=0)
         scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
@@ -171,53 +207,17 @@ class SkillSelectionModal:
             )
             domain_tag.pack(side="right")
 
-            # Description
+            # Description (int font size 9)
             desc_lbl = tk.Label(
                 card,
-                text=p.get('description', '')[:120] + "...",
-                font=("Segoe UI", 8.5),
+                text=p.get('description', '')[:130] + ("..." if len(p.get('description', '')) > 130 else ""),
+                font=("Segoe UI", 9),
                 bg=CARD_BG,
                 fg=TEXT_MUTED,
                 wraplength=460,
                 justify="left"
             )
             desc_lbl.pack(anchor="w", padx=28, pady=(3, 0))
-
-        # Bottom Action Bar
-        action_bar = tk.Frame(self.win, bg=BG_COLOR)
-        action_bar.pack(fill="x", padx=18, pady=(8, 16))
-
-        cancel_btn = tk.Button(
-            action_bar,
-            text="Cancel",
-            font=("Segoe UI", 9, "bold"),
-            bg=BTN_CANCEL_BG,
-            fg=TEXT_PRIMARY,
-            activebackground="#475569",
-            activeforeground=TEXT_PRIMARY,
-            bd=0,
-            padx=16,
-            pady=6,
-            cursor="hand2",
-            command=self._on_cancel
-        )
-        cancel_btn.pack(side="right", padx=(8, 0))
-
-        ok_btn = tk.Button(
-            action_bar,
-            text="OK (Learn Selected)",
-            font=("Segoe UI", 9, "bold"),
-            bg=BTN_OK_BG,
-            fg=TEXT_PRIMARY,
-            activebackground="#0369A1",
-            activeforeground=TEXT_PRIMARY,
-            bd=0,
-            padx=18,
-            pady=6,
-            cursor="hand2",
-            command=lambda: self._on_ok(proposals, on_approve_callback)
-        )
-        ok_btn.pack(side="right")
 
     def _on_cancel(self):
         self._cancel_requested = True
@@ -291,7 +291,7 @@ class SkillSelectionModal:
         self.step_lbl = tk.Label(
             prog_box,
             text="⚡ Step 1/4: Formulating SkillSpec & Prompting GenAI...",
-            font=("Segoe UI", 9.5),
+            font=("Segoe UI", 10),
             bg=CARD_BG,
             fg=TEXT_PRIMARY
         )
@@ -388,9 +388,41 @@ class SkillSelectionModal:
         )
         info_lbl.pack(anchor="w", pady=(2, 0))
 
-        # Main Card Content
+        # Bottom Action Bar (Packed FIRST with side='bottom' so it is ALWAYS visible)
+        action_bar = tk.Frame(self.win, bg=BG_COLOR)
+        action_bar.pack(side="bottom", fill="x", padx=18, pady=(10, 16))
+
+        close_btn = tk.Button(
+            action_bar,
+            text="Done (Close)",
+            font=("Segoe UI", 9, "bold"),
+            bg=BTN_CANCEL_BG,
+            fg=TEXT_PRIMARY,
+            bd=0,
+            padx=16,
+            pady=7,
+            cursor="hand2",
+            command=self.win.destroy
+        )
+        close_btn.pack(side="right", padx=(8, 0))
+
+        open_manual_btn = tk.Button(
+            action_bar,
+            text="📖 Open Skills Manual File",
+            font=("Segoe UI", 9, "bold"),
+            bg=BTN_OK_BG,
+            fg=TEXT_PRIMARY,
+            bd=0,
+            padx=16,
+            pady=7,
+            cursor="hand2",
+            command=self._open_manual_file
+        )
+        open_manual_btn.pack(side="right")
+
+        # Main Card Content (Fills middle)
         card = tk.Frame(self.win, bg=CARD_BG, padx=16, pady=14)
-        card.pack(fill="both", expand=True, padx=18, pady=8)
+        card.pack(side="top", fill="both", expand=True, padx=18, pady=8)
 
         primary_skill = chosen_skills[0] if chosen_skills else {}
         skill_title = primary_skill.get("title", "Custom Skill")
@@ -409,7 +441,7 @@ class SkillSelectionModal:
         matlab_desc = tk.Label(
             card,
             text=skill_desc,
-            font=("Segoe UI", 8.5),
+            font=("Segoe UI", 9),
             bg=CARD_BG,
             fg=TEXT_MUTED,
             wraplength=460,
@@ -447,38 +479,6 @@ class SkillSelectionModal:
             fg="#A7F3D0"
         )
         manual_note.pack(anchor="w", pady=(6, 0))
-
-        # Action Buttons
-        action_bar = tk.Frame(self.win, bg=BG_COLOR)
-        action_bar.pack(fill="x", padx=18, pady=(8, 16))
-
-        close_btn = tk.Button(
-            action_bar,
-            text="Done (Close)",
-            font=("Segoe UI", 9, "bold"),
-            bg=BTN_CANCEL_BG,
-            fg=TEXT_PRIMARY,
-            bd=0,
-            padx=16,
-            pady=6,
-            cursor="hand2",
-            command=self.win.destroy
-        )
-        close_btn.pack(side="right", padx=(8, 0))
-
-        open_manual_btn = tk.Button(
-            action_bar,
-            text="📖 Open Skills Manual File",
-            font=("Segoe UI", 9, "bold"),
-            bg=BTN_OK_BG,
-            fg=TEXT_PRIMARY,
-            bd=0,
-            padx=16,
-            pady=6,
-            cursor="hand2",
-            command=self._open_manual_file
-        )
-        open_manual_btn.pack(side="right")
 
     def _open_manual_file(self):
         try:
