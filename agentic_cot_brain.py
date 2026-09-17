@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 agentic_cot_brain.py
 ====================
@@ -90,6 +90,7 @@ AVAILABLE TOOLS:
 - 'computer_use': { "goal": "autonomous screen automation goal like fill form, click element, extract table" }
 - 'propose_daily_skills': {}
 - 'approve_skill': { "skill_number": 1 }
+- 'open_skills_manual': {}
 - 'none': (Use when user is chatting, asking questions, discussing concepts, coding help, or general talk)
 
 Always maintain a witty, capable, and respectful JARVIS personality. Output ONLY valid JSON.
@@ -520,6 +521,13 @@ Respond in JSON:
                 import skill_scout_engine
                 idx = int(args.get("skill_number", 1))
                 return skill_scout_engine.scout_engine.approve_skill_by_index(idx, voice=v)
+
+            elif tool == "open_skills_manual":
+                import skills_manual_manager
+                opened = skills_manual_manager.manual_manager.open_manual()
+                if opened and v and hasattr(v, "speak"):
+                    v.speak("Boss, maine learned skills ka complete user manual open kar diya hai.", emotion="happy")
+                return True
 
         except Exception as e:
             print(f"[agentic_cot_brain] Tool execution error for '{tool}': {e}")

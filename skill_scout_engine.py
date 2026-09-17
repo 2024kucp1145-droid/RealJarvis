@@ -233,6 +233,39 @@ Output JSON list of objects matching:
             except Exception:
                 pass
 
+        # Launch Interactive Floating Selection Modal
+        try:
+            import skill_selection_modal
+            props_data = []
+            for p in self.active_proposals:
+                if hasattr(p, "title"):
+                    props_data.append({
+                        "title": p.title,
+                        "domain": p.domain,
+                        "description": p.description,
+                        "status": p.status
+                    })
+                elif isinstance(p, dict):
+                    props_data.append(p)
+
+            root_tk = getattr(gui, "root", None) if gui else None
+
+            def _on_modal_approve(chosen):
+                for skill_dict in chosen:
+                    s_title = skill_dict.get("title")
+                    for i, p in enumerate(self.active_proposals):
+                        if (hasattr(p, "title") and p.title == s_title) or (isinstance(p, dict) and p.get("title") == s_title):
+                            self.approve_skill_by_index(i + 1, voice=voice)
+                            break
+
+            skill_selection_modal.show_selection_modal(
+                props_data,
+                on_approve_callback=_on_modal_approve,
+                root=root_tk
+            )
+        except Exception as e:
+            print(f"[skill_scout modal launch error: {e}]")
+
         if voice and hasattr(voice, "speak"):
             voice.speak(briefing, emotion="excited")
         else:

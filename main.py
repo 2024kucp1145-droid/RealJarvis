@@ -651,6 +651,20 @@ class Jarvis:
             self_evolution_engine.evolution_engine.triage_missing_skill(text)
             return True
 
+        # ---- LEARNED SKILLS USER MANUAL OPENER ----
+        if any(w in clean_lower for w in ("skills manual", "skill manual", "manual kholo", "manual khol do", "manual dikhao", "skills guide", "custom skills manual", "skills document")):
+            import skills_manual_manager
+            opened = skills_manual_manager.manual_manager.open_manual()
+            if opened:
+                self.speak("Boss, maine learned skills ka complete manual screen par open kar diya hai. Aap wahan se sabhi voice commands aur unka use padh sakte hain.", emotion="happy")
+                return True
+
+        # ---- SKILL SCOUT DISCOVERY POPUP TRIGGER ----
+        if any(w in clean_lower for w in ("naye skills dhundo", "naye skills propose", "skills propose", "propose skills", "skills scout karo", "scout skills")):
+            import skill_scout_engine
+            skill_scout_engine.scout_engine.present_proposals_vocally(voice=self.voice, gui=self.gui)
+            return True
+
         # ---- SKILL DASHBOARD & INTROSPECTION ----
         if any(w in clean_lower for w in ("kya kya seekha", "kya seekha", "learned skills", "skills batao", "apne skills", "skills dashboard", "show skills")):
             import skill_dashboard

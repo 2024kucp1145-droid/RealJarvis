@@ -58,5 +58,18 @@ class CompletionAnnouncer:
         except Exception as e:
             print(f"[completion_announcer whatsapp error: {e}]")
 
+        # 4. Auto-Record to Persistent Skills Manual
+        try:
+            from skills_manual_manager import manual_manager
+            manual_manager.record_learned_skill(
+                skill_name=spec.skill_name,
+                category=spec.category,
+                description=spec.description or "Automated desktop task.",
+                triggers=spec.triggers,
+                examples=[f"User: 'Jarvis, {t}' -> Executes autonomous automation." for t in spec.triggers[:2]]
+            )
+        except Exception as e:
+            print(f"[completion_announcer manual record error: {e}]")
+
 
 announcer = CompletionAnnouncer()
