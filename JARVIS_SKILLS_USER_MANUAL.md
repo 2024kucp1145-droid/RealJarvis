@@ -8,19 +8,22 @@
 
 ## PDF Smart Multi-tool
 - **Category / Domain:** `Documents`
-- **Date Learned:** `2026-09-17 13:07:32`
+- **Date Learned:** `2026-09-17 13:23:12`
 
-### Yeh Tool Kya Kaam Karta Hai (Matlab):
+### 📌 Yeh Tool Kya Kaam Karta Hai (Matlab):
 Extracts tables from PDF files into Excel, merges multiple documents, and creates encrypted backups.
 
-### Is Tool Ko Use Kaise Karein (Voice Commands):
-Aap Jarvis se inme se koi bhi command bol sakte hain:
-- `"Jarvis, is PDF file ko merge kar do"`
-- `"Jarvis, PDF se tables extract karke Excel bana do"`
-- `"Jarvis, PDF smart multi tool run karo"`
+### 🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):
+- **Tables Extract Karna:** PDF reports ya bills ke tables ko read karke Excel (.xlsx) sheet banana.
+- **Multiple PDFs Merge Karna:** Alag-alag PDF files ko jod kar single structured document banana.
+- **Password Protection:** Sensitive documents par password encryption aur safe backup lagana.
 
-**Live Examples:**
-- Jarvis, merge these two PDFs -> Output: merged.pdf
+### 🎤 Is Tool Ko Use Kaise Karein (Voice Commands):
+Aap Jarvis se inme se koi bhi command bol sakte hain:
+- `"Jarvis, is PDF se tables nikaal kar Excel bana do"`
+- `"Jarvis, in dono PDF files ko merge kar do"`
+- `"Jarvis, is PDF par password protect kar do"`
+- `"Jarvis, PDF smart multi-tool run karo"`
 
 
 

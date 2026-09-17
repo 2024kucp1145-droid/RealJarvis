@@ -62,7 +62,7 @@ class SkillSelectionModal:
 
     def _setup_window(self, win):
         win.title("Jarvis - Skill Scout & Discovery Hub")
-        win.geometry("540x510")
+        win.geometry("560x610")
         win.configure(bg=BG_COLOR)
         win.attributes("-topmost", True)
         win.resizable(False, False)
@@ -72,9 +72,9 @@ class SkillSelectionModal:
             win.update_idletasks()
             sw = win.winfo_screenwidth()
             sh = win.winfo_screenheight()
-            x = (sw - 540) // 2
-            y = (sh - 510) // 2
-            win.geometry(f"540x510+{x}+{y}")
+            x = (sw - 560) // 2
+            y = (sh - 610) // 2
+            win.geometry(f"560x610+{x}+{y}")
         except Exception:
             pass
 
@@ -428,6 +428,9 @@ class SkillSelectionModal:
         skill_title = primary_skill.get("title", "Custom Skill")
         skill_desc = primary_skill.get("description", "Automates desktop and browser tasks.")
 
+        # Derive rich capabilities & realistic voice commands
+        capabilities, commands = self._get_skill_capabilities_and_commands(skill_title, skill_desc)
+
         # Section 1: Matlab (What it does)
         matlab_title = tk.Label(
             card,
@@ -444,41 +447,133 @@ class SkillSelectionModal:
             font=("Segoe UI", 9),
             bg=CARD_BG,
             fg=TEXT_MUTED,
-            wraplength=460,
+            wraplength=480,
             justify="left"
         )
-        matlab_desc.pack(anchor="w", pady=(2, 10))
+        matlab_desc.pack(anchor="w", pady=(2, 8))
 
-        # Section 2: Kaise Use Karein (Voice Commands)
+        # Section 2: Yeh Kya-Kya Kar Sakta Hai (Specific Capabilities)
+        cap_title = tk.Label(
+            card,
+            text="🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):",
+            font=("Segoe UI", 10, "bold"),
+            bg=CARD_BG,
+            fg="#FBBF24"
+        )
+        cap_title.pack(anchor="w", pady=(2, 4))
+
+        cap_box = tk.Frame(card, bg="#0F172A", padx=10, pady=6)
+        cap_box.pack(fill="x", pady=(0, 8))
+
+        for cap in capabilities:
+            cap_lbl = tk.Label(
+                cap_box,
+                text=f"• {cap}",
+                font=("Segoe UI", 8.5 if False else 9),
+                bg="#0F172A",
+                fg="#F1F5F9",
+                wraplength=460,
+                justify="left"
+            )
+            cap_lbl.pack(anchor="w", pady=2)
+
+        # Section 3: Kaise Use Karein (Exact Voice Commands)
         use_title = tk.Label(
             card,
-            text="🎤 Kaise Use Karein (Voice Commands):",
+            text="🎤 Kaise Use Karein (Exact Voice Commands):",
             font=("Segoe UI", 10, "bold"),
             bg=CARD_BG,
             fg=ACCENT_COLOR
         )
-        use_title.pack(anchor="w")
+        use_title.pack(anchor="w", pady=(2, 4))
 
-        triggers_box = tk.Frame(card, bg="#0F172A", padx=10, pady=8)
-        triggers_box.pack(fill="x", pady=6)
+        triggers_box = tk.Frame(card, bg="#0F172A", padx=10, pady=6)
+        triggers_box.pack(fill="x", pady=(0, 6))
 
-        cmd1 = f"• 'Jarvis, {skill_title.lower()} run karo'"
-        cmd2 = f"• 'Jarvis, {skill_title.lower()} execute kar do'"
-        cmd3 = f"• 'Jarvis, {skill_title.lower()} start karo'"
+        for cmd in commands:
+            lbl = tk.Label(triggers_box, text=cmd, font=("Consolas", 9), bg="#0F172A", fg="#38BDF8")
+            lbl.pack(anchor="w", pady=1.5 if False else 1)
 
-        for cmd in [cmd1, cmd2, cmd3]:
-            lbl = tk.Label(triggers_box, text=cmd, font=("Consolas", 9), bg="#0F172A", fg="#E2E8F0")
-            lbl.pack(anchor="w", pady=1)
-
-        # Section 3: Manual status
+        # Section 4: Manual status
         manual_note = tk.Label(
             card,
-            text="💾 Yeh details permanent 'JARVIS_SKILLS_USER_MANUAL.md' mein save ho gayi hain.",
+            text="💾 Yeh saari details permanent 'JARVIS_SKILLS_USER_MANUAL.md' mein save ho gayi hain.",
             font=("Segoe UI", 8),
             bg=CARD_BG,
             fg="#A7F3D0"
         )
-        manual_note.pack(anchor="w", pady=(6, 0))
+        manual_note.pack(anchor="w", pady=(4, 0))
+
+    def _get_skill_capabilities_and_commands(self, title: str, desc: str):
+        t_lower = title.lower()
+
+        if "pdf" in t_lower:
+            capabilities = [
+                "Tables Extract Karna: PDF reports ya bills ke tables ko read karke Excel (.xlsx) sheet banana.",
+                "Multiple PDFs Merge Karna: Alag-alag PDF files ko jod kar single structured document banana.",
+                "Password Protection: Sensitive documents par password encryption aur safe backup lagana."
+            ]
+            commands = [
+                "• 'Jarvis, is PDF se tables nikaal kar Excel bana do'",
+                "• 'Jarvis, in dono PDF files ko merge kar do'",
+                "• 'Jarvis, is PDF par password protect kar do'",
+                "• 'Jarvis, PDF smart multi-tool execute karo'"
+            ]
+        elif "excel" in t_lower or "sheet" in t_lower or "cleaner" in t_lower:
+            capabilities = [
+                "Duplicate Rows Hataana: CSV aur Excel sheets se repeated entries clean karna.",
+                "Dates Uniform Format: Alag-alag date formats ko single standard format mein badalna.",
+                "Missing Values Fill: Empty ya blank cells ko detect karke clean karna."
+            ]
+            commands = [
+                "• 'Jarvis, is Excel sheet se duplicates clean kar do'",
+                "• 'Jarvis, data ki dates ko format karo'",
+                "• 'Jarvis, Excel normalizer run karo'"
+            ]
+        elif "workflow" in t_lower or "context" in t_lower or "archiver" in t_lower:
+            capabilities = [
+                "Workspace Snapshot: Current research windows, URLs aur open files ka snapshot lena.",
+                "Session Bookmark: Sabhi reference links ko Markdown file mein save karna.",
+                "Session Restore: Pichhle din ke session ko dobara restore karna."
+            ]
+            commands = [
+                "• 'Jarvis, mera current workflow session save kar do'",
+                "• 'Jarvis, active context archive karo'",
+                "• 'Jarvis, pichhla research session restore kar do'"
+            ]
+        elif "junk" in t_lower or "temp" in t_lower or "purger" in t_lower:
+            capabilities = [
+                "Safe %TEMP% Cleaning: System crash dumps aur temp files bina personal files chhue delete karna.",
+                "Browser Cache Flush: Chrome/Edge ka heavy cache delete karke storage free karna.",
+                "Disk Space Recovery: Low disk alert par GBs of unwanted files saaf karna."
+            ]
+            commands = [
+                "• 'Jarvis, system se junk aur temp files clean kar do'",
+                "• 'Jarvis, browser cache clear karo'",
+                "• 'Jarvis, disk purger run karo'"
+            ]
+        elif "git" in t_lower or "diagnoser" in t_lower:
+            capabilities = [
+                "Untracked & Unpushed Check: Git repository ke pending changes aur commits inspect karna.",
+                "Clean Commit Generator: Code changes ke basis par conventional commit message likhna.",
+                "Branch & Conflict Health: Git branches aur merge conflicts diagnose karna."
+            ]
+            commands = [
+                "• 'Jarvis, git repository status check karo'",
+                "• 'Jarvis, clean commit message generate karo'",
+                "• 'Jarvis, git diagnoser run karo'"
+            ]
+        else:
+            # Generic smart clause parsing
+            parts = [p.strip() for p in desc.replace(";", ",").split(",") if len(p.strip()) > 8]
+            capabilities = [f"Feature {i+1}: {p}" for i, p in enumerate(parts[:3])] if parts else [desc]
+            commands = [
+                f"• 'Jarvis, {title.lower()} run karo'",
+                f"• 'Jarvis, {title.lower()} execute kar do'",
+                f"• 'Jarvis, iska automation start karo'"
+            ]
+
+        return capabilities, commands
 
     def _open_manual_file(self):
         try:

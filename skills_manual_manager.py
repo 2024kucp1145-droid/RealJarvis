@@ -42,6 +42,16 @@ class SkillsManualManager:
         if examples:
             examples_formatted = "\n**Live Examples:**\n" + "\n".join([f"- {ex}" for ex in examples]) + "\n"
 
+        # Derive capabilities if available
+        cap_section = ""
+        try:
+            import skill_selection_modal
+            caps, cmds = skill_selection_modal.SkillSelectionModal._get_skill_capabilities_and_commands(None, skill_name, description)
+            if caps:
+                cap_section = "\n### 🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):\n" + "\n".join([f"- **{c.split(':')[0]}:** {':'.join(c.split(':')[1:]).strip()}" if ":" in c else f"- {c}" for c in caps]) + "\n"
+        except Exception:
+            pass
+
         date_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
         entry = f"""
@@ -49,10 +59,10 @@ class SkillsManualManager:
 - **Category / Domain:** `{category}`
 - **Date Learned:** `{date_str}`
 
-### Yeh Tool Kya Kaam Karta Hai (Matlab):
+### 📌 Yeh Tool Kya Kaam Karta Hai (Matlab):
 {description}
-
-### Is Tool Ko Use Kaise Karein (Voice Commands):
+{cap_section}
+### 🎤 Is Tool Ko Use Kaise Karein (Voice Commands):
 Aap Jarvis se inme se koi bhi command bol sakte hain:
 {triggers_formatted}
 {examples_formatted}
