@@ -146,3 +146,49 @@ Aap Jarvis se inme se koi bhi command bol sakte hain:
 
 
 ---
+
+## Screen OCR Text & Table Snatcher
+- **Category / Domain:** `Vision/Utility`
+- **Date Learned:** `2026-09-18 08:12:07`
+
+### 📌 Yeh Tool Kya Kaam Karta Hai (Matlab):
+Captures any screen area, extracts uncopyable text, error messages or tables, and copies to clipboard.
+
+### 🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):
+- **Feature 1:** Captures any screen area
+- **Feature 2:** extracts uncopyable text
+- **Feature 3:** error messages or tables
+
+### 🎤 Is Tool Ko Use Kaise Karein (Voice Commands):
+Aap Jarvis se inme se koi bhi command bol sakte hain:
+- `"Jarvis, screen ocr text & table snatcher run karo"`
+- `"Jarvis, screen ocr text & table snatcher automate kar do"`
+
+**Live Examples:**
+- User: 'Jarvis, screen ocr text & table snatcher start karo' -> Jarvis executes autonomous action.
+
+
+
+---
+
+## Desktop Icon Grid Aligner
+- **Category / Domain:** `Files`
+- **Date Learned:** `2026-09-18 08:12:07`
+
+### 📌 Yeh Tool Kya Kaam Karta Hai (Matlab):
+Cleans up messy desktop icons by automatically organizing them into neat categorized grids or snapping them back to preferred custom templates after external monitor changes.
+
+### 🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):
+- **Feature 1:** Cleans up messy desktop icons by automatically organizing them into neat categorized grids or snapping them back to preferred custom templates after external monitor changes.
+
+### 🎤 Is Tool Ko Use Kaise Karein (Voice Commands):
+Aap Jarvis se inme se koi bhi command bol sakte hain:
+- `"Jarvis, desktop icon grid aligner run karo"`
+- `"Jarvis, desktop icon grid aligner automate kar do"`
+
+**Live Examples:**
+- User: 'Jarvis, desktop icon grid aligner start karo' -> Jarvis executes autonomous action.
+
+
+
+---

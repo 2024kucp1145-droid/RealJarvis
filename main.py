@@ -700,6 +700,45 @@ class Jarvis:
         except Exception as e:
             print(f"[custom_skill execution error: {e}]")
 
+        # =========================================================================
+        # ---- PRIMARY INTENT-FIRST SEMANTIC AGENTIC BRAIN ROUTER ----
+        # =========================================================================
+        # Eliminates fragile keyword dependency. The Cognitive Brain parses
+        # natural language meaning, casual slang ('yr', 'bhai'), and intent!
+        if self.ai.available():
+            try:
+                mem_ctx = memory.build_memory_context(current_query=text, limit=4) if memory else ""
+                desktop_ctx = desktop_context.build_context_summary() if desktop_context else ""
+                full_ctx = f"{mem_ctx}\n\n{desktop_ctx}".strip()
+
+                import agentic_cot_brain
+                step = agentic_cot_brain.cot_brain.reason_and_plan(text, context=full_ctx)
+
+                if step.action_name and step.action_name != "none":
+                    if step.response_text:
+                        self.speak(step.response_text, emotion=step.emotion)
+                    agentic_cot_brain.cot_brain.execute_step_action(step, jarvis_instance=self)
+                    return True
+                else:
+                    if step.response_text:
+                        interrupted = self.speak(step.response_text, interruptible=True, emotion=step.emotion)
+                        if interrupted:
+                            follow_up = self.listen(timeout=6, phrase_time_limit=10)
+                            if follow_up:
+                                self.gui.show_message(f"Aapne kaha: {follow_up}")
+                                return self.handle_text(follow_up)
+                        return True
+                    else:
+                        interrupted = self.speak_ai_stream(text)
+                        if interrupted:
+                            follow_up = self.listen(timeout=6, phrase_time_limit=10)
+                            if follow_up:
+                                self.gui.show_message(f"Aapne kaha: {follow_up}")
+                                return self.handle_text(follow_up)
+                        return True
+            except Exception as e:
+                print(f"[intent-first brain routing note: {e}], falling back to offline rules...")
+
         # ---- STARK MORNING BRIEFING ----
         try:
             clean_text_lower = text.strip().lower()
@@ -788,55 +827,9 @@ class Jarvis:
                 if any(kw in text.lower() for kw in explicit_visual_keywords):
                     return self.handle_monitor_vision(text)
 
-            if self.ai.available():
-                # Build live associative memory + desktop workflow context
-                mem_ctx = memory.build_memory_context(current_query=text, limit=4)
-                desktop_ctx = desktop_context.build_context_summary()
-                full_ctx = f"{mem_ctx}\n\n{desktop_ctx}"
-
-                # ---- AGENTIC CHAIN-OF-THOUGHT (CoT) REASONING LOOP ----
-                import agentic_cot_brain
-                step = agentic_cot_brain.cot_brain.reason_and_plan(text, context=full_ctx)
-
-                if step.action_name:
-                    if step.response_text:
-                        self.speak(step.response_text, emotion=step.emotion)
-                    agentic_cot_brain.cot_brain.execute_step_action(step, jarvis_instance=self)
-                    return True
-                else:
-                    if step.response_text:
-                        interrupted = self.speak(step.response_text, interruptible=True, emotion=step.emotion)
-                        if interrupted:
-                            follow_up = self.listen(timeout=6, phrase_time_limit=10)
-                            if follow_up:
-                                self.gui.show_message(f"Aapne kaha: {follow_up}")
-                                return self.handle_text(follow_up)
-                        return True
-                    else:
-                        interrupted = self.speak_ai_stream(text)
-                        if interrupted:
-                            follow_up = self.listen(timeout=6, phrase_time_limit=10)
-                            if follow_up:
-                                self.gui.show_message(f"Aapne kaha: {follow_up}")
-                                return self.handle_text(follow_up)
-                        return True
-
-                # Check if unhandled intent is an actionable missing skill
-                if self_evolution_engine.evolution_engine.triage_missing_skill(text, context=full_ctx):
-                    return True
-
-                # Fallback (function-calling wala tareeka fail ho gaya kisi
-                # wajah se) - purana streaming chat try karo.
-                interrupted = self.speak_ai_stream(text)
-                if interrupted:
-                    follow_up = self.listen(timeout=6, phrase_time_limit=10)
-                    if follow_up:
-                        self.gui.show_message(f"Aapne kaha: {follow_up}")
-                        return self.handle_text(follow_up)
-            else:
-                if self_evolution_engine.evolution_engine.triage_missing_skill(text):
-                    return True
-                self.speak("Samajh nahi paayi, dobara boliye ya thoda alag tarike se kahiye.")
+            if self_evolution_engine.evolution_engine.triage_missing_skill(text):
+                return True
+            self.speak("Samajh nahi paayi, dobara boliye ya thoda alag tarike se kahiye.")
             return True
 
         ctype = data["type"]

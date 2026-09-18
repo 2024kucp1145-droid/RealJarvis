@@ -78,6 +78,7 @@ AVAILABLE TOOLS:
 - 'open_app': { "app_name": "notepad|vscode|spotify|calculator|chrome|..." }
 - 'open_url': { "url": "https://..." }
 - 'web_search': { "query": "search query" }
+- 'play_music': { "song_name": "song name or artist or mood to play on YouTube/music" }
 - 'compare_prices': { "product": "product name" }
 - 'travel_route': { "origin": "city1", "destination": "city2", "mode": "train|bus|car|flight" }
 - 'read_screen': { "question": "specific visual question about the screen" }
@@ -407,6 +408,13 @@ Respond in JSON:
                     universal_web_operator.web_operator.run_web_research(query)
                     return True
 
+            # 3B. PLAY MUSIC / YOUTUBE
+            elif tool == "play_music":
+                song = args.get("song_name") or args.get("query") or "latest songs"
+                import commands.browser_commands as browser_cmd
+                browser_cmd.play_youtube(v, song=song)
+                return True
+
             # 4. ECOMMERCE PRICE COMPARISON
             elif tool == "compare_prices":
                 product = args.get("product", "")
@@ -421,9 +429,11 @@ Respond in JSON:
                 import google_maps_travel_hub
                 google_maps_travel_hub.travel_hub.voice = v
                 google_maps_travel_hub.travel_hub.ai = getattr(jarvis_instance, "ai", None)
-                google_maps_travel_hub.travel_hub.gui = getattr(jarvis_instance, "gui", None)
-                query_str = f"{args.get('origin', '')} to {args.get('destination', '')} {args.get('mode', '')}"
-                google_maps_travel_hub.travel_hub.answer_travel_query(query_str)
+                orig = args.get('origin', '')
+                dest = args.get('destination', '')
+                mode = args.get('mode', 'driving')
+                query_str = f"{orig} to {dest} {mode}"
+                google_maps_travel_hub.travel_hub.answer_travel_query(query_str, origin=orig, destination=dest, mode=mode)
                 return True
 
             # 6. SYSTEM CONTROLS

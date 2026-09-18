@@ -37,16 +37,23 @@ class GoogleMapsTravelHub:
         """Extracts origin and destination from Hindi/English travel queries."""
         clean = text.lower()
         
+        # Comprehensive stopwords for casual conversation / Hinglish slang
+        stopwords = {
+            "jaana", "jaane", "jana", "jane", "hai", "h", "yr", "yaar", "yar", "bhai", "bro",
+            "nikalna", "niklo", "mujhe", "humko", "humein", "batao", "bata", "dikhao", "dikhana",
+            "kholo", "check", "karo", "karna", "please", "jarvis", "chalo", "chalna", "ka", "ki",
+            "ke", "tak", "route", "se", "to", "mein", "me", "via", "trip", "travel", "chahiye"
+        }
+        
         # Pattern 1: "X to Y" / "X se Y" / "X se Y tak"
-        m = re.search(r'([a-zA-Z\s]+)\s+(?:to|se)\s+([a-zA-Z\s]+?)(?:\s+(?:jaane|ka|ke|tak|route|train|bus|flight|time|distance|by)|\?|$)', clean)
+        m = re.search(r'([a-zA-Z\s]+)\s+(?:to|se)\s+([a-zA-Z\s]+)', clean)
         if m:
             orig = m.group(1).strip()
             dest = m.group(2).strip()
-            # Clean trigger words
-            stopwords = ["jaana", "hai", "mujhe", "batao", "dikhao", "kholo", "check", "karo", "please", "jarvis"]
             orig_tokens = [w for w in orig.split() if w not in stopwords]
             dest_tokens = [w for w in dest.split() if w not in stopwords]
-            return " ".join(orig_tokens).strip().title(), " ".join(dest_tokens).strip().title()
+            if orig_tokens and dest_tokens:
+                return " ".join(orig_tokens).strip().title(), " ".join(dest_tokens).strip().title()
 
         return "Kota", "Jaipur"
 
@@ -154,12 +161,18 @@ class GoogleMapsTravelHub:
         return {"success": True, "url": flight_url, "message": msg}
 
     # ------------------------------------------------------------- 4. COMPLETE ROUTE ADVISOR
-    def answer_travel_query(self, text: str) -> bool:
+    def answer_travel_query(self, text: str, origin: Optional[str] = None, destination: Optional[str] = None, mode: Optional[str] = None) -> bool:
         """
         Main handler that resolves time, routes, trains, buses, and best options.
+        Can be called with raw speech text or direct extracted origin/destination.
         """
-        orig, dest = self.extract_origin_destination(text)
-        mode = self.detect_mode(text)
+        if origin and destination:
+            orig = origin.strip().title()
+            dest = destination.strip().title()
+        else:
+            orig, dest = self.extract_origin_destination(text)
+
+        mode = mode or self.detect_mode(text)
         clean = text.lower()
 
         if self.gui and hasattr(self.gui, "show_message"):
