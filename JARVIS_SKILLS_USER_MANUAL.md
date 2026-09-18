@@ -28,3 +28,74 @@ Aap Jarvis se inme se koi bhi command bol sakte hain:
 
 
 ---
+
+## Excel Data Normalizer & Cleaner
+- **Category / Domain:** `Office/Data`
+- **Date Learned:** `2026-09-17 13:26:50`
+
+### 📌 Yeh Tool Kya Kaam Karta Hai (Matlab):
+Scans CSV and Excel files, removes duplicate rows, formats dates uniformly, and fixes missing cells.
+
+### 🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):
+- **Duplicate Rows Hataana:** CSV aur Excel sheets se repeated entries clean karna.
+- **Dates Uniform Format:** Alag-alag date formats ko single standard format mein badalna.
+- **Missing Values Fill:** Empty ya blank cells ko detect karke clean karna.
+
+### 🎤 Is Tool Ko Use Kaise Karein (Voice Commands):
+Aap Jarvis se inme se koi bhi command bol sakte hain:
+- `"Jarvis, excel data normalizer & cleaner run karo"`
+- `"Jarvis, excel data normalizer & cleaner automate kar do"`
+
+**Live Examples:**
+- User: 'Jarvis, excel data normalizer & cleaner start karo' -> Jarvis executes autonomous action.
+
+
+
+---
+
+## Intelligent Disk Junk & Temp Purger
+- **Category / Domain:** `System Optimization`
+- **Date Learned:** `2026-09-17 13:26:50`
+
+### 📌 Yeh Tool Kya Kaam Karta Hai (Matlab):
+Cleans temporary directories (%TEMP%, browser caches) safely without touching personal files.
+
+### 🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):
+- **Safe %TEMP% Cleaning:** System crash dumps aur temp files bina personal files chhue delete karna.
+- **Browser Cache Flush:** Chrome/Edge ka heavy cache delete karke storage free karna.
+- **Disk Space Recovery:** Low disk alert par GBs of unwanted files saaf karna.
+
+### 🎤 Is Tool Ko Use Kaise Karein (Voice Commands):
+Aap Jarvis se inme se koi bhi command bol sakte hain:
+- `"Jarvis, intelligent disk junk & temp purger run karo"`
+- `"Jarvis, intelligent disk junk & temp purger automate kar do"`
+
+**Live Examples:**
+- User: 'Jarvis, intelligent disk junk & temp purger start karo' -> Jarvis executes autonomous action.
+
+
+
+---
+
+## Automate Intelligent Disk Junk
+- **Category / Domain:** `browser_web`
+- **Date Learned:** `2026-09-17 13:28:06`
+
+### 📌 Yeh Tool Kya Kaam Karta Hai (Matlab):
+Autonomous skill to Automate Intelligent Disk Junk & Temp Purger: Cleans temporary directories (%TEMP%, browser caches) safely without touching personal files.. Uses os.walk and safe pathlib checks with whitelisted temp paths. Tailored for browser environment.
+
+### 🎯 Yeh Kya-Kya Kar Sakta Hai (Actions / Features):
+- **Safe %TEMP% Cleaning:** System crash dumps aur temp files bina personal files chhue delete karna.
+- **Browser Cache Flush:** Chrome/Edge ka heavy cache delete karke storage free karna.
+- **Disk Space Recovery:** Low disk alert par GBs of unwanted files saaf karna.
+
+### 🎤 Is Tool Ko Use Kaise Karein (Voice Commands):
+Aap Jarvis se inme se koi bhi command bol sakte hain:
+- `"Jarvis, automate intelligent disk junk & temp purger: cleans temporary directories (%temp%, browser caches) safely without touching personal files.. uses os.walk and safe pathlib checks with whitelisted temp paths"`
+
+**Live Examples:**
+- User: 'Jarvis, automate intelligent disk junk & temp purger: cleans temporary directories (%temp%, browser caches) safely without touching personal files.. uses os.walk and safe pathlib checks with whitelisted temp paths' -> Executes autonomous automation.
+
+
+
+---

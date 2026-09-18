@@ -662,7 +662,19 @@ class Jarvis:
         # ---- SKILL SCOUT DISCOVERY POPUP TRIGGER ----
         if any(w in clean_lower for w in ("naye skills dhundo", "naye skills propose", "skills propose", "propose skills", "skills scout karo", "scout skills")):
             import skill_scout_engine
-            skill_scout_engine.scout_engine.present_proposals_vocally(voice=self.voice, gui=self.gui)
+            skill_scout_engine.scout_engine.present_proposals_vocally(voice=self.voice, gui=self.gui, force_fresh=True)
+            return True
+
+        # ---- SKILL SCOUT: CYCLE TO NEXT / FRESH BATCH ("kuch aur") ----
+        if any(w in clean_lower for w in ("kuch aur skills", "kuch aur dikhao", "kuch naya batao", "ye nahi chahiye", "next skills", "kuch aur skill", "aur skills dikhao", "doosri skills", "kuch aur")):
+            import skill_scout_engine
+            skill_scout_engine.scout_engine.cycle_to_next_batch(voice=self.voice, gui=self.gui)
+            return True
+
+        # ---- SKILL SCOUT: PREVIOUS UNCHOSEN SKILLS LIST ("previous kaun si thi") ----
+        if any(w in clean_lower for w in ("previous kaun si thi", "purani skills", "purani list", "previous skills", "jo choose nahi ki", "jo dikhayi thi", "pehle wali skills", "unchosen skills")):
+            import skill_scout_engine
+            skill_scout_engine.scout_engine.present_previous_unchosen(voice=self.voice, gui=self.gui)
             return True
 
         # ---- SKILL DASHBOARD & INTROSPECTION ----

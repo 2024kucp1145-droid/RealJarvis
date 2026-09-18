@@ -90,6 +90,8 @@ AVAILABLE TOOLS:
 - 'computer_use': { "goal": "autonomous screen automation goal like fill form, click element, extract table" }
 - 'propose_daily_skills': {}
 - 'approve_skill': { "skill_number": 1 }
+- 'cycle_skill_proposals': {}
+- 'show_previous_skills': {}
 - 'open_skills_manual': {}
 - 'none': (Use when user is chatting, asking questions, discussing concepts, coding help, or general talk)
 
@@ -101,15 +103,18 @@ class AgenticCotBrain:
     def __init__(self):
         self._gemini_client = None
         self._model_cascade = [
-            getattr(config, "GEMINI_MODEL", "gemini-flash-latest"),
+            "gemini-flash-lite-latest",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
             "gemini-flash-latest",
-            "gemma-4-26b-a4b-it",
-            "gemma-4-31b-it"
+            "gemma-4-26b-a4b-it"
         ]
         # De-duplicate cascade order
         seen = set()
         self._model_cascade = [m for m in self._model_cascade if m and not (m in seen or seen.add(m))]
         self._active_model_index = 0
+        self._model_cooldowns = {}  # {model_name: expiry_timestamp}
         self._init_client()
 
     def _init_client(self):
@@ -121,9 +126,16 @@ class AgenticCotBrain:
                 print(f"[agentic_cot_brain] Client init error: {e}")
 
     def get_current_model(self) -> str:
-        if self._active_model_index < len(self._model_cascade):
-            return self._model_cascade[self._active_model_index]
-        return "gemini-flash-latest"
+        now = time.time()
+        # Find first non-cooling model starting from active index
+        for i in range(len(self._model_cascade)):
+            idx = (self._active_model_index + i) % len(self._model_cascade)
+            m = self._model_cascade[idx]
+            if now >= self._model_cooldowns.get(m, 0):
+                self._active_model_index = idx
+                return m
+        # If all in cooldown, return first
+        return self._model_cascade[0]
 
     def rotate_model(self) -> str:
         self._active_model_index = (self._active_model_index + 1) % len(self._model_cascade)
@@ -227,7 +239,12 @@ class AgenticCotBrain:
 
             except Exception as e:
                 last_error = e
-                print(f"[agentic_cot_brain] Attempt with '{current_model}' failed: {e}")
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "Quota exceeded" in err_str:
+                    self._model_cooldowns[current_model] = time.time() + 30
+                    print(f"[agentic_cot_brain] [!] Model '{current_model}' quota exceeded. Placed on 30s cooldown.")
+                else:
+                    print(f"[agentic_cot_brain] Attempt with '{current_model}' failed: {e}")
                 self.rotate_model()
                 attempts += 1
 
@@ -521,6 +538,16 @@ Respond in JSON:
                 import skill_scout_engine
                 idx = int(args.get("skill_number", 1))
                 return skill_scout_engine.scout_engine.approve_skill_by_index(idx, voice=v)
+
+            elif tool == "cycle_skill_proposals":
+                import skill_scout_engine
+                skill_scout_engine.scout_engine.cycle_to_next_batch(voice=v, gui=getattr(jarvis_instance, "gui", None))
+                return True
+
+            elif tool == "show_previous_skills":
+                import skill_scout_engine
+                skill_scout_engine.scout_engine.present_previous_unchosen(voice=v, gui=getattr(jarvis_instance, "gui", None))
+                return True
 
             elif tool == "open_skills_manual":
                 import skills_manual_manager
