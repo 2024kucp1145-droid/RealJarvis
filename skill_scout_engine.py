@@ -20,6 +20,11 @@ import sys
 import json
 import time
 import re
+import random
+import urllib.request
+import urllib.parse
+import ssl
+from bs4 import BeautifulSoup
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
 
@@ -275,12 +280,132 @@ class SkillScoutEngine:
         with open(PROPOSALS_MD, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
 
+    def _search_internet_for_automation_ideas(self, count: int = 4) -> List[Dict[str, str]]:
+        """
+        Scrapes real live web search results from DuckDuckGo for trending automation scripts,
+        tools, and ideas that can run on Windows desktop.
+        """
+        search_queries = [
+            "python windows desktop automation script ideas",
+            "trending python automation scripts github",
+            "useful python scripts for windows daily workflow",
+            "python scripts to automate desktop activities in windows",
+            "awesome python automation tools for pc",
+            "python scripts to automate boring tasks windows",
+            "useful python automation ideas for software engineering",
+            "innovative python desktop automation scripts"
+        ]
+        chosen_queries = random.sample(search_queries, k=min(2, len(search_queries)))
+        all_results = []
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+        for q in chosen_queries:
+            try:
+                url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote_plus(q)}"
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
+                    html = resp.read().decode("utf-8", errors="ignore")
+                    soup = BeautifulSoup(html, "html.parser")
+                    for r in soup.find_all("div", class_="result__body"):
+                        title = r.find("h2").get_text(strip=True) if r.find("h2") else ""
+                        snippet_elem = r.find("a", class_="result__snippet")
+                        snippet = snippet_elem.get_text(strip=True) if snippet_elem else ""
+                        if title and snippet:
+                            all_results.append({"title": title, "snippet": snippet})
+                        if len(all_results) >= 12:
+                            break
+            except Exception as e:
+                print(f"[skill_scout] Web search query '{q}' note: {e}")
+
+        return all_results
+
+    def _discover_skills_from_internet(self, count: int = 4, force_fresh: bool = False) -> List[SkillProposal]:
+        """
+        Primary Discovery Mechanism:
+        Searches the live internet for Windows automation tools, parses real web results,
+        and uses Gemini to formulate novel, non-repeating SkillProposals that Jarvis lacks.
+        """
+        existing_skills = set()
+        if os.path.exists(CUSTOM_SKILLS_DIR):
+            for f in os.listdir(CUSTOM_SKILLS_DIR):
+                if f.endswith(".py"):
+                    existing_skills.add(f[:-3].lower())
+
+        shown_history = {h["id"] for h in self._get_shown_history()}
+        shown_titles = [h.get("title", "") for h in self._get_shown_history()]
+        current_active_ids = {p.id for p in self.active_proposals} if force_fresh else set()
+
+        web_results = self._search_internet_for_automation_ideas(count=count)
+        if not web_results or not self._gemini_client:
+            print("[skill_scout] Internet search returned no items or Gemini client uninitialized.")
+            return []
+
+        snippets_text = "\n".join([f"- {r['title']}: {r['snippet']}" for r in web_results[:10]])
+        exclude_context = f"Already existing or previously proposed (DO NOT REPEAT): {list(existing_skills | shown_history | current_active_ids)}"
+
+        prompt = f"""You are Jarvis's Autonomous Internet Skill Scout.
+Jarvis runs on a Windows 10/11 desktop with Python 3.12.
+Here are real live search results scraped from the web regarding automation scripts and utilities:
+{snippets_text}
+
+{exclude_context}
+
+Based on these real web discoveries and modern desktop automation needs:
+Synthesize {count} completely novel, high-utility automation skills for Windows that Jarvis does NOT already have.
+Skills must be executable via Python scripts using desktop libraries (pyautogui, pygetwindow, psutil, win32api, requests, bs4, openpyxl, etc.).
+
+Output ONLY a raw JSON array of objects with keys:
+- id: snake_case identifier (e.g. 'smart_battery_sentry', 'window_workspace_arranger')
+- title: concise title
+- domain: category (e.g. 'System', 'Files', 'Productivity', 'Network', 'Media')
+- description: clear explanation of what problem it solves and what it does for the user
+- technical_approach: the python libraries and mechanisms it will use
+- safety_rating: "SAFE"
+"""
+        try:
+            resp = self._gemini_client.models.generate_content(
+                model="gemini-flash-lite-latest",
+                contents=prompt
+            )
+            txt = resp.text.strip()
+            if txt.startswith("```"):
+                txt = re.sub(r"^```(?:json)?\s*", "", txt, flags=re.I)
+                txt = re.sub(r"\s*```$", "", txt)
+            items = json.loads(txt.strip())
+
+            proposals = []
+            for it in items:
+                s_id = it.get("id", f"skill_{int(time.time())}").strip().lower()
+                if s_id not in existing_skills and s_id not in current_active_ids:
+                    if not force_fresh or s_id not in shown_history:
+                        proposals.append(SkillProposal(
+                            id=s_id,
+                            title=it.get("title", "Live Web Skill"),
+                            domain=it.get("domain", "Productivity"),
+                            description=it.get("description", ""),
+                            technical_approach=it.get("technical_approach", "Python Standard Library"),
+                            safety_rating=it.get("safety_rating", "SAFE")
+                        ))
+                        if len(proposals) >= count:
+                            break
+            print(f"[skill_scout] Successfully discovered & synthesized {len(proposals)} skills directly from live internet!")
+            return proposals
+        except Exception as e:
+            print(f"[skill_scout] Internet skill synthesis note: {e}")
+            return []
+
     def scout_candidate_skills(self, count: int = 4, force_fresh: bool = False) -> List[SkillProposal]:
         """
-        Explores candidate skills. Guarantees fresh, non-repeating skills by excluding:
-        1. All already synthesized skills in custom_skills/
-        2. All active skills in current view
-        3. If force_fresh=True, prioritizes skills not yet shown to user.
+        Primary: Discovers novel skills directly by searching the live internet.
+        Fallback: If offline or internet search fails, draws from curated taxonomy.
+        Guarantees non-repeating skills by excluding custom_skills/ and shown history.
         """
         existing_skills = set()
         if os.path.exists(CUSTOM_SKILLS_DIR):
@@ -291,69 +416,27 @@ class SkillScoutEngine:
         shown_history = {h["id"] for h in self._get_shown_history()}
         current_active_ids = {p.id for p in self.active_proposals} if force_fresh else set()
 
-        new_proposals: List[SkillProposal] = []
+        # 1. PRIMARY SOURCE: Real live internet discovery
+        print("[skill_scout] Scouting live internet for brand new automation skills...")
+        new_proposals = self._discover_skills_from_internet(count=count, force_fresh=force_fresh)
 
-        # 1. First pass: Curated taxonomy skills that have NEVER been shown and NEVER learned
-        for item in CURATED_CAPABILITY_TAXONOMY:
-            s_id = item["id"]
-            if s_id not in existing_skills and s_id not in current_active_ids:
-                if s_id not in shown_history or not force_fresh:
-                    new_proposals.append(SkillProposal(
-                        id=s_id,
-                        title=item["title"],
-                        domain=item["domain"],
-                        description=item["description"],
-                        technical_approach=item["technical_approach"],
-                        safety_rating=item["safety_rating"]
-                    ))
-                    if len(new_proposals) >= count:
-                        break
-
-        # 2. Second pass: If still need more, take any taxonomy skill not in custom_skills and not in active
+        # 2. FALLBACK ONLY: If internet is offline or returned fewer proposals than needed
         if len(new_proposals) < count:
+            print(f"[skill_scout] Internet returned {len(new_proposals)}/{count}. Supplementing from curated taxonomy fallback...")
             for item in CURATED_CAPABILITY_TAXONOMY:
                 s_id = item["id"]
                 if s_id not in existing_skills and s_id not in current_active_ids and not any(p.id == s_id for p in new_proposals):
-                    new_proposals.append(SkillProposal(
-                        id=s_id,
-                        title=item["title"],
-                        domain=item["domain"],
-                        description=item["description"],
-                        technical_approach=item["technical_approach"],
-                        safety_rating=item["safety_rating"]
-                    ))
-                    if len(new_proposals) >= count:
-                        break
-
-        # 3. Dynamic GenAI Discovery (Lightning fast gemini-flash-lite-latest)
-        if len(new_proposals) < count and self._gemini_client:
-            try:
-                needed = count - len(new_proposals)
-                prompt = f"""Generate {needed} brand new, unique desktop automation skills for Windows.
-Focus on novel productivity, study tools, data extraction, or system optimization.
-Output ONLY a JSON array of objects with keys: id (snake_case), title, domain, description, technical_approach, safety_rating ("SAFE")."""
-                
-                resp = self._gemini_client.models.generate_content(
-                    model="gemini-flash-lite-latest",
-                    contents=prompt
-                )
-                txt = resp.text.strip()
-                if txt.startswith("```"):
-                    txt = re.sub(r"^```(?:json)?\s*", "", txt, flags=re.I)
-                    txt = re.sub(r"\s*```$", "", txt)
-                items = json.loads(txt.strip())
-                for it in items:
-                    if it.get("id") not in existing_skills and not any(p.id == it.get("id") for p in new_proposals):
+                    if s_id not in shown_history or not force_fresh:
                         new_proposals.append(SkillProposal(
-                            id=it.get("id", f"skill_{int(time.time())}"),
-                            title=it.get("title", "Novel Skill"),
-                            domain=it.get("domain", "Productivity"),
-                            description=it.get("description", ""),
-                            technical_approach=it.get("technical_approach", "Python Standard Library"),
-                            safety_rating=it.get("safety_rating", "SAFE")
+                            id=s_id,
+                            title=item["title"],
+                            domain=item["domain"],
+                            description=item["description"],
+                            technical_approach=item["technical_approach"],
+                            safety_rating=item["safety_rating"]
                         ))
-            except Exception as e:
-                print(f"[skill_scout] Dynamic LLM generation note: {e}")
+                        if len(new_proposals) >= count:
+                            break
 
         self.active_proposals = new_proposals
         self.save_proposals()
