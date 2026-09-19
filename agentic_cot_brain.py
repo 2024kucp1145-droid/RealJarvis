@@ -6,7 +6,8 @@ Autonomous Cognitive Super-Brain for Real Jarvis (Phase 1).
 
 Features:
 1. Multi-Tier Model Cascade:
-   Primary 'gemini-flash-latest' -> Fallback 'gemini-2.5-flash-lite' -> 'gemini-pro-latest'.
+   Primary 'gemini-flash-lite-latest' -> Fallback 'gemini-2.0-flash' -> 'gemini-1.5-flash'.
+   (gemini-flash-latest has a 20/day hard quota — avoid using it as primary.)
 2. Metacognitive Self-Reflection & Auto-Recovery:
    When any tool execution encounters an error, the brain reflects on the failure
    and attempts an alternative execution path instead of crashing or giving up.

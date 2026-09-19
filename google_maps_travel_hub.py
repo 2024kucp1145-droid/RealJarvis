@@ -201,13 +201,13 @@ class GoogleMapsTravelHub:
         # 5. General Time / Distance / Best option query:
         # e.g. "Kota to Jaipur jaane mein kitna time lagta hai by bus / train / car?"
         self.open_maps_route(orig, dest, mode=mode)
-        
-        # Detailed vocal briefing on all options
+
+        # Generic briefing — actual details are on the live Google Maps screen
         full_advice = (
-            f"{orig} se {dest} ki distance lagbhag 240 kilometers hai. "
-            f"Car ya cab se jaane mein lagbhag 4 se 4.5 ghante lagte hain via NH 52. "
-            f"Train se Vande Bharat ya Express mein lagbhag 2.5 se 3.5 ghante lagte hain, jo ki sabse fast aur comfortable option hai! "
-            f"Aur Bus se lagbhag 4.5 se 5 ghante lagte hain. Maine screen par live Google Maps route open kar diya hai boss!"
+            f"{orig} se {dest} ka route maine screen par live Google Maps mein open kar diya hai boss! "
+            f"Wahan aapko exact distance, current traffic ke saath estimated time, "
+            f"aur sab se fast aur comfortable road route milega. "
+            f"Train ya bus options ke liye ek baar bolo 'train' ya 'bus' aur main directly search kar dunga!"
         )
 
         if self.voice:
