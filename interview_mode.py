@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 interview_mode.py  â€”  RealJarvis Secret Interview Cheat Mode
 =============================================================
@@ -171,18 +171,173 @@ def _get_tk_hwnd(root) -> int | None:
 # SCREENSHOT
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _take_screenshot() -> bytes | None:
-    """Full screen screenshot leta hai. Koi bhi flash/sound nahi."""
-    if not _PYAUTOGUI:
-        print("[InterviewMode] ERROR: pyautogui missing. Run: pip install pyautogui")
-        return None
+    """
+    Full screen screenshot — 6-method fallback chain.
+    Method 0: PrintScreen key + Win32 Clipboard (most reliable in real sessions)
+    Method 1: PowerShell subprocess
+    Method 2: mss (fastest pure-python)
+    Method 3: PIL ImageGrab
+    Method 4: pyautogui
+    Method 5: win32api BitBlt
+    Koi bhi flash ya sound nahi.
+    """
+    import io, os, tempfile, subprocess
+
+    # ── Method 0: PrintScreen + Clipboard ────────────────────────────────
+    # Windows mein PrintScreen key clipboard mein screenshot daalta hai
+    # Ye ALWAYS kaam karta hai real user session mein
     try:
-        img = pyautogui.screenshot()
+        import win32clipboard, win32con
+        from PIL import Image as _Img
+
+        # PrintScreen simulate karo
+        import ctypes
+        _VK_SNAPSHOT = 0x2C
+        ctypes.windll.user32.keybd_event(_VK_SNAPSHOT, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(_VK_SNAPSHOT, 0, 0x0002, 0)  # KEYEVENTF_KEYUP
+        import time as _t; _t.sleep(0.15)  # clipboard fill hone do
+
+        win32clipboard.OpenClipboard()
+        try:
+            if win32clipboard.IsClipboardFormatAvailable(win32con.CF_DIB):
+                data = win32clipboard.GetClipboardData(win32con.CF_DIB)
+                win32clipboard.CloseClipboard()
+                # DIB data ko PIL Image mein convert karo
+                import struct
+                # DIB header se width/height nikalo
+                hdr_size = struct.unpack_from("<I", data, 0)[0]
+                width  = struct.unpack_from("<i", data, 4)[0]
+                height = struct.unpack_from("<i", data, 8)[0]
+                bits   = struct.unpack_from("<H", data, 14)[0]
+                # Pixel data skip header
+                px_data = data[hdr_size:]
+                mode = "RGB" if bits == 24 else "RGBA"
+                img = _Img.frombytes(mode, (width, abs(height)), px_data, "raw", mode, 0, 1 if height < 0 else -1)
+                buf = io.BytesIO()
+                img.save(buf, format="PNG", optimize=True)
+                result = buf.getvalue()
+                if len(result) > 5000:
+                    print(f"[InterviewMode] Screenshot via Clipboard OK ({len(result)//1024} KB)")
+                    return result
+            else:
+                win32clipboard.CloseClipboard()
+                raise RuntimeError("CF_DIB not in clipboard")
+        except Exception as _inner:
+            try: win32clipboard.CloseClipboard()
+            except: pass
+            raise _inner
+    except Exception as _e_clip:
+        print(f"[InterviewMode] Clipboard method failed ({_e_clip}), trying PowerShell...")
+
+    # ── Method 1: PowerShell subprocess ──────────────────────────────────
+
+    try:
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp_path = tmp.name
+        tmp.close()
+
+        ps_cmd = (
+            "Add-Type -AssemblyName System.Windows.Forms;"
+            "Add-Type -AssemblyName System.Drawing;"
+            "$s=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds;"
+            "$b=New-Object System.Drawing.Bitmap($s.Width,$s.Height);"
+            "$g=[System.Drawing.Graphics]::FromImage($b);"
+            "$g.CopyFromScreen($s.Location,[System.Drawing.Point]::Empty,$s.Size);"
+            f"$b.Save('{tmp_path.replace(chr(92), '/')}');"
+            "$g.Dispose();$b.Dispose();"
+        )
+        result = subprocess.run(
+            ["powershell", "-WindowStyle", "Hidden", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True, text=True, timeout=8
+        )
+        if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 10000:
+            with open(tmp_path, "rb") as f_img:
+                data = f_img.read()
+            os.unlink(tmp_path)
+            print(f"[InterviewMode] Screenshot via PowerShell OK ({len(data)//1024} KB)")
+            return data
+        else:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            raise RuntimeError(f"PS screenshot small/empty. stderr={result.stderr[:80]}")
+    except Exception as _e0:
+        print(f"[InterviewMode] PowerShell method failed ({_e0}), trying mss...")
+
+    # ── Method 1: mss (fastest, most reliable on Windows) ────────────────
+    try:
+        import mss
+        with mss.mss() as sct:
+            monitor = sct.monitors[0]
+            sct_img = sct.grab(monitor)
+            from PIL import Image as _PILImg
+            img = _PILImg.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG", optimize=True)
+            print("[InterviewMode] Screenshot via mss OK")
+            return buf.getvalue()
+    except Exception as _e1:
+        print(f"[InterviewMode] mss failed ({_e1}), trying PIL...")
+
+    # ── Method 2: PIL ImageGrab ───────────────────────────────────────────
+    try:
+        from PIL import ImageGrab
+        img = ImageGrab.grab(all_screens=True)
         buf = io.BytesIO()
         img.save(buf, format="PNG", optimize=True)
+        print("[InterviewMode] Screenshot via PIL.ImageGrab OK")
         return buf.getvalue()
-    except Exception as e:
-        print(f"[InterviewMode] Screenshot error: {e}")
-        return None
+    except Exception as _e2:
+        print(f"[InterviewMode] PIL.ImageGrab failed ({_e2}), trying pyautogui...")
+
+    # ── Method 3: pyautogui ───────────────────────────────────────────────
+    try:
+        if pyautogui:
+            img = pyautogui.screenshot()
+            buf = io.BytesIO()
+            img.save(buf, format="PNG", optimize=True)
+            print("[InterviewMode] Screenshot via pyautogui OK")
+            return buf.getvalue()
+    except Exception as _e3:
+        print(f"[InterviewMode] pyautogui failed ({_e3}), trying win32...")
+
+    # ── Method 4: win32api BitBlt ─────────────────────────────────────────
+    try:
+        import win32gui, win32ui, win32con
+        hdesktop = win32gui.GetDesktopWindow()
+        width  = win32api_GetSystemMetrics(0)
+        height = win32api_GetSystemMetrics(1)
+        desktop_dc = win32gui.GetWindowDC(hdesktop)
+        img_dc  = win32ui.CreateDCFromHandle(desktop_dc)
+        mem_dc  = img_dc.CreateCompatibleDC()
+        bmp     = win32ui.CreateBitmap()
+        bmp.CreateCompatibleBitmap(img_dc, width, height)
+        mem_dc.SelectObject(bmp)
+        mem_dc.BitBlt((0, 0), (width, height), img_dc, (0, 0), win32con.SRCCOPY)
+        bmpinfo  = bmp.GetInfo()
+        bmpstr   = bmp.GetBitmapBits(True)
+        from PIL import Image as _PILImg2
+        img = _PILImg2.frombuffer(
+            "RGB", (bmpinfo["bmWidth"], bmpinfo["bmHeight"]),
+            bmpstr, "raw", "BGRX", 0, 1
+        )
+        mem_dc.DeleteDC()
+        win32gui.DeleteObject(bmp.GetHandle())
+        win32gui.ReleaseDC(hdesktop, desktop_dc)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", optimize=True)
+        print("[InterviewMode] Screenshot via win32api OK")
+        return buf.getvalue()
+    except Exception as _e4:
+        print(f"[InterviewMode] win32api failed ({_e4})")
+
+    print("[InterviewMode] ALL screenshot methods FAILED!")
+    return None
+
+
+def win32api_GetSystemMetrics(n):
+    """Helper for win32 screen size."""
+    import ctypes as _ct
+    return _ct.windll.user32.GetSystemMetrics(n)
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # GEMINI VISION ANALYSIS
