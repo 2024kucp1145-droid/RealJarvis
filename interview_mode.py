@@ -265,8 +265,9 @@ def _take_screenshot() -> bytes | None:
 
     # ── Method 1: mss (fastest, most reliable on Windows) ────────────────
     try:
-        import mss
-        with mss.mss() as sct:
+        import mss, warnings
+        warnings.filterwarnings("ignore", category=DeprecationWarning, module="mss")
+        with mss.MSS() as sct:
             monitor = sct.monitors[0]
             sct_img = sct.grab(monitor)
             from PIL import Image as _PILImg
