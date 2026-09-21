@@ -422,7 +422,22 @@ class Jarvis:
 
     def handle_text(self, text: str) -> bool:
         """Return False agar conversation/session yahi khatam karni ho."""
-        
+
+        # =========================================================================
+        # ---- INTERVIEW MODE TRIGGER (SABSE PEHLE CHECK KARO) ----
+        # =========================================================================
+        # "interview mode on/off" detect karo — agar active hai toh silently capture karo
+        try:
+            from interview_mode import check_interview_trigger, interview_mode as _imode
+            if check_interview_trigger(text, gui=self.gui, voice=self.voice):
+                return True
+            # Agar interview mode active hai toh normal processing skip karo
+            # (sirf hotkey A+S kaam karega, voice commands nahi)
+            if _imode.is_active:
+                return True
+        except Exception as _ie:
+            print(f"[interview_mode hook error: {_ie}]")
+
         # ---- HUMAN PARALINGUISTIC BIO-EVENT HANDLER (Yawn, Laugh, Hum, Cry) ----
         try:
             from acoustic_filter_engine import acoustic_filter
