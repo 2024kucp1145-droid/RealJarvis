@@ -106,8 +106,13 @@ _GEMINI_KEY, _WA_NUMBER = _load_cfg()
 # Agar A+S chahiye toh neeche _HOTKEY = "a+s" kar do
 _HOTKEY = "ctrl+shift+s"
 
-# Gemini model for vision
-_VISION_MODEL = "gemini-2.0-flash"
+# Gemini models — cascade (pehle fast wala try karo, fail ho toh next)
+_VISION_MODELS = [
+    "gemini-flash-lite-latest",   # fastest, teri key par kaam karta hai
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+]
 
 # Screenshot lene se pehle delay (seconds)
 _CAPTURE_DELAY = 0.2
@@ -183,7 +188,7 @@ def _take_screenshot() -> bytes | None:
     """
     import io, os, tempfile, subprocess
 
-    # ── Method 0: PrintScreen + Clipboard ────────────────────────────────
+    # ?? Method 0: PrintScreen + Clipboard ????????????????????????????????
     # Windows mein PrintScreen key clipboard mein screenshot daalta hai
     # Ye ALWAYS kaam karta hai real user session mein
     try:
@@ -229,7 +234,7 @@ def _take_screenshot() -> bytes | None:
     except Exception as _e_clip:
         print(f"[InterviewMode] Clipboard method failed ({_e_clip}), trying PowerShell...")
 
-    # ── Method 1: PowerShell subprocess ──────────────────────────────────
+    # ?? Method 1: PowerShell subprocess ??????????????????????????????????
 
     try:
         tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
@@ -263,7 +268,7 @@ def _take_screenshot() -> bytes | None:
     except Exception as _e0:
         print(f"[InterviewMode] PowerShell method failed ({_e0}), trying mss...")
 
-    # ── Method 1: mss (fastest, most reliable on Windows) ────────────────
+    # ?? Method 1: mss (fastest, most reliable on Windows) ????????????????
     try:
         import mss, warnings
         warnings.filterwarnings("ignore", category=DeprecationWarning, module="mss")
@@ -279,7 +284,7 @@ def _take_screenshot() -> bytes | None:
     except Exception as _e1:
         print(f"[InterviewMode] mss failed ({_e1}), trying PIL...")
 
-    # ── Method 2: PIL ImageGrab ───────────────────────────────────────────
+    # ?? Method 2: PIL ImageGrab ???????????????????????????????????????????
     try:
         from PIL import ImageGrab
         img = ImageGrab.grab(all_screens=True)
@@ -290,7 +295,7 @@ def _take_screenshot() -> bytes | None:
     except Exception as _e2:
         print(f"[InterviewMode] PIL.ImageGrab failed ({_e2}), trying pyautogui...")
 
-    # ── Method 3: pyautogui ───────────────────────────────────────────────
+    # ?? Method 3: pyautogui ???????????????????????????????????????????????
     try:
         if pyautogui:
             img = pyautogui.screenshot()
@@ -301,7 +306,7 @@ def _take_screenshot() -> bytes | None:
     except Exception as _e3:
         print(f"[InterviewMode] pyautogui failed ({_e3}), trying win32...")
 
-    # ── Method 4: win32api BitBlt ─────────────────────────────────────────
+    # ?? Method 4: win32api BitBlt ?????????????????????????????????????????
     try:
         import win32gui, win32ui, win32con
         hdesktop = win32gui.GetDesktopWindow()
@@ -344,33 +349,46 @@ def win32api_GetSystemMetrics(n):
 # GEMINI VISION ANALYSIS
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _analyze(img_bytes: bytes) -> str:
-    """Screenshot ko Gemini Vision se analyze karo."""
+    """Screenshot ko Gemini Vision se analyze karo — model cascade with fallback."""
     if not _GENAI:
-        return "ERROR: google-generativeai not installed. Run: pip install google-generativeai"
+        return "ERROR: google-generativeai not installed."
     if not _GEMINI_KEY:
         return "ERROR: GEMINI_API_KEY missing in .env file!"
 
-    try:
-        client = _genai_lib.Client(api_key=_GEMINI_KEY)
-        img_b64 = base64.b64encode(img_bytes).decode()
+    client = _genai_lib.Client(api_key=_GEMINI_KEY)
+    img_b64 = base64.b64encode(img_bytes).decode()
 
-        response = client.models.generate_content(
-            model=_VISION_MODEL,
-            contents=[{
-                "role": "user",
-                "parts": [
-                    {"inline_data": {"mime_type": "image/png", "data": img_b64}},
-                    {"text": _PROMPT},
-                ],
-            }],
-        )
-        return (response.text or "No answer generated.").strip()
-    except Exception as e:
-        err = str(e)
-        print(f"[InterviewMode] Gemini error: {err}")
-        if "429" in err:
-            return "Gemini busy (429 quota). 1 minute baad try karo."
-        return f"Analysis failed: {err[:120]}"
+    last_err = ""
+    for model in _VISION_MODELS:
+        try:
+            print(f"[InterviewMode]    Trying model: {model}")
+            response = client.models.generate_content(
+                model=model,
+                contents=[{
+                    "role": "user",
+                    "parts": [
+                        {"inline_data": {"mime_type": "image/png", "data": img_b64}},
+                        {"text": _PROMPT},
+                    ],
+                }],
+            )
+            answer = (response.text or "").strip()
+            if answer:
+                print(f"[InterviewMode]    Model {model} answered OK")
+                return answer
+        except Exception as e:
+            last_err = str(e)
+            err_short = last_err[:80]
+            if "429" in last_err:
+                print(f"[InterviewMode]    {model}: quota full, trying next...")
+            elif "404" in last_err:
+                print(f"[InterviewMode]    {model}: not available, trying next...")
+            else:
+                print(f"[InterviewMode]    {model}: {err_short}")
+
+    if "429" in last_err:
+        return "Quota full hai. 1 minute baad Ctrl+Shift+S dobara dabaao."
+    return f"Koi bhi Gemini model kaam nahi kiya. Error: {last_err[:100]}"
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # WHATSAPP SILENT SEND â€” 3 methods, fallback chain
@@ -590,7 +608,7 @@ class InterviewMode:
             # STEP 2: Gemini Vision
             print("[InterviewMode] 2. Analyzing with Gemini Vision...")
             answer = _analyze(img)
-            print(f"[InterviewMode]    Answer preview: {answer[:100]}...")
+            print("[InterviewMode]    Answer: " + answer[:120].encode("ascii","replace").decode())
 
             # STEP 3: WhatsApp
             print(f"[InterviewMode] 3. Sending to WhatsApp {_WA_NUMBER}...")
