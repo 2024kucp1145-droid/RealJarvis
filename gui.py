@@ -424,11 +424,30 @@ class JarvisGUI:
 
     def show_message(self, text: str, ms: int = 2800):
         try:
+            from interview_mode import interview_mode as _imode
+            if _imode.is_active:
+                return
+        except Exception:
+            pass
+        try:
             self.root.after(0, lambda: self._show_tooltip(text, ms))
         except Exception:
             pass
 
     def _show_tooltip(self, text, ms):
+        try:
+            from interview_mode import interview_mode as _imode
+            if _imode.is_active:
+                if hasattr(self, "_current_tooltip") and self._current_tooltip:
+                    try:
+                        self._current_tooltip.destroy()
+                    except Exception:
+                        pass
+                    self._current_tooltip = None
+                return
+        except Exception:
+            pass
+
         if hasattr(self, "_current_tooltip") and self._current_tooltip:
             try:
                 self._current_tooltip.destroy()

@@ -113,6 +113,13 @@ class Voice:
         turant interruptible hone chahiye, warna lambe jawab me kabhi interrupt
         hi nahi kar paoge (grace period har naye sentence pe reset ho jaata).
         """
+        try:
+            from interview_mode import interview_mode as _imode
+            if _imode.is_active:
+                return False
+        except Exception:
+            pass
+
         print(f"Jarvis [{emotion}]: {text}")
         mode = config.TTS_MODE
         use_online = (mode == "online") or (mode == "auto" and has_internet())

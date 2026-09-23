@@ -200,6 +200,13 @@ class Jarvis:
               is_first_chunk: bool = True) -> bool:
         """Bolta hai. Chat mode mein bubble bhi dikhata hai."""
         try:
+            from interview_mode import interview_mode as _imode
+            if _imode.is_active:
+                return False
+        except Exception:
+            pass
+
+        try:
             self.gui.set_emotion(emotion)
             self.gui.set_state("speaking")
             self.gui.show_message(text)
@@ -429,7 +436,7 @@ class Jarvis:
         # "interview mode on/off" detect karo — agar active hai toh silently capture karo
         try:
             from interview_mode import check_interview_trigger, interview_mode as _imode
-            if check_interview_trigger(text, gui=self.gui, voice=self.voice):
+            if check_interview_trigger(text, gui=self.gui, voice=self.voice, chat_gui=getattr(self, "chat_gui", None)):
                 return True
             # Agar interview mode active hai toh normal processing skip karo
             # (sirf hotkey A+S kaam karega, voice commands nahi)

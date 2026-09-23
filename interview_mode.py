@@ -552,13 +552,14 @@ class InterviewMode:
 
     # ── PUBLIC ──────────────────────────────────────────────────────────
 
-    def activate(self, gui=None, voice=None):
-        """Interview Mode ON — GUI hide + hotkey register."""
+    def activate(self, gui=None, voice=None, chat_gui=None):
+        """Interview Mode ON — GUI hide + hotkey register + absolute silence."""
         if self.active:
             return
 
         self._gui = gui
         self._voice = voice
+        self._chat_gui = chat_gui
         self.active = True
         self._capture_count = 0
         self._last_right_time = 0.0
@@ -566,6 +567,14 @@ class InterviewMode:
         # ── 1. GUI ko puri tarah hide karo ──────────────────────────────
         if gui:
             try:
+                # Destroy any floating tooltips/messages immediately
+                if hasattr(gui, "_current_tooltip") and gui._current_tooltip:
+                    try:
+                        gui._current_tooltip.destroy()
+                    except Exception:
+                        pass
+                    gui._current_tooltip = None
+
                 # Try Win32 force-hide first (works from any thread)
                 hwnd = _get_tk_hwnd(gui.root)
                 if hwnd:
@@ -573,7 +582,6 @@ class InterviewMode:
                     _force_hide_window(hwnd)
                     print(f"[InterviewMode] GUI hidden via Win32 (hwnd={hwnd})")
                 else:
-                    # Fallback: Tkinter withdraw via main thread queue
                     gui.root.after(0, self._tk_hide)
                     print("[InterviewMode] GUI withdraw queued via Tkinter.after()")
             except Exception as e:
@@ -583,9 +591,19 @@ class InterviewMode:
                 except Exception:
                     pass
 
+        # ── 1.1 Chat GUI bhi hide karo agar khula hai ────────────────────
+        if chat_gui:
+            try:
+                if hasattr(chat_gui, "window") and chat_gui.window:
+                    chat_gui.window.withdraw()
+                    hwnd_c = _get_tk_hwnd(chat_gui.window)
+                    if hwnd_c:
+                        _force_hide_window(hwnd_c)
+            except Exception:
+                pass
+
         # ── 2. Voice silence (store reference, will check is_active) ────
-        # voice.speak() calls will be skipped when interview mode is on
-        # because handle_text returns early
+        # All voice/speech is automatically blocked because is_active is True
 
         # ── 3. Hotkey & Double Right-Arrow register ─────────────────────
         if _KEYBOARD:
@@ -614,13 +632,14 @@ class InterviewMode:
 
         print(f"[InterviewMode] *** ACTIVATED *** Double-tap Right Arrow (or {_HOTKEY}) to capture & answer")
 
-    def deactivate(self, gui=None, voice=None):
+    def deactivate(self, gui=None, voice=None, chat_gui=None):
         """Interview Mode OFF — GUI restore + hotkey remove."""
         if not self.active:
             return
 
         self.active = False
         _gui = gui or self._gui
+        _chat_gui = chat_gui or getattr(self, "_chat_gui", None)
 
         # Remove hotkey & right arrow hook
         if _KEYBOARD and self._hotkey_added:
@@ -646,6 +665,13 @@ class InterviewMode:
                     _gui.root.after(0, lambda: _gui.root.attributes("-topmost", True))
             except Exception as e:
                 print(f"[InterviewMode] GUI restore error: {e}")
+
+        # Restore Chat GUI if was previously active
+        if _chat_gui and hasattr(_chat_gui, "window") and _chat_gui.window:
+            try:
+                _chat_gui.window.deiconify()
+            except Exception:
+                pass
 
         print(f"[InterviewMode] *** OFF *** Captures this session: {self._capture_count}")
 
@@ -738,41 +764,49 @@ interview_mode = InterviewMode()
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # VOICE TRIGGER HELPER â€” main.py mein call karo
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-_ON_PHRASES = [
-    "interview mode on", "interview mode chalu", "interview mode start",
-    "interview shuru", "interview on", "cheat mode on", "exam mode on",
-    "exam mode chalu", "hide ho jao", "gayab ho jao",
-]
-
 _OFF_PHRASES = [
     "interview mode off", "interview mode band", "interview mode stop",
     "interview off", "cheat mode off", "exam mode off",
-    "wapas aao jarvis", "normal mode", "normal wapas",
+    "wapas aao jarvis", "normal mode", "normal wapas", "interview khatam",
+    "interview over", "interview done",
+]
+
+# Inme se koi bhi word/phrase aate hi stealth interview mode on hoga
+_ON_KEYWORDS = [
+    "interview", "exam mode", "cheat mode", "hide ho jao", "gayab ho jao",
+    "chup ho jao", "silent mode",
 ]
 
 
-def check_interview_trigger(text: str, gui=None, voice=None) -> bool:
+def check_interview_trigger(text: str, gui=None, voice=None, chat_gui=None) -> bool:
     """
     main.py ke handle_text() mein sabse PEHLE call karo.
-    Returns True agar interview trigger hua (baaki processing skip karo).
+    Returns True agar interview trigger hua ya interview mode active hai.
     """
     lower = text.lower().strip()
 
-    for phrase in _ON_PHRASES:
-        if phrase in lower:
-            interview_mode.activate(gui=gui, voice=voice)
-            return True
-
+    # 1. Pehle OFF phrases check karo (deactivate)
     for phrase in _OFF_PHRASES:
         if phrase in lower:
-            interview_mode.deactivate(gui=gui, voice=voice)
-            # Voice se confirm karo (ab normal mode hai)
+            interview_mode.deactivate(gui=gui, voice=voice, chat_gui=chat_gui)
             if voice:
                 try:
                     voice.speak("Wapas aa gaya hoon boss!", emotion="happy")
                 except Exception:
                     pass
             return True
+
+    # 2. Agar Interview Mode already active hai:
+    # PURI TARAH CHUP RAHO — koi processing nahi, koi text nahi, koi bolna nahi!
+    if interview_mode.is_active:
+        return True
+
+    # 3. Agar user ne 'interview' ya koi bhi stealth keyword bola:
+    # TURANT INTERVIEW MODE ON KARO — bilkul chup chaap, koi mock interview nahi!
+    if any(k in lower for k in _ON_KEYWORDS):
+        print(f"[InterviewMode] Trigger matched keyword in: '{lower}'")
+        interview_mode.activate(gui=gui, voice=voice, chat_gui=chat_gui)
+        return True
 
     return False
 
