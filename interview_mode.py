@@ -390,76 +390,155 @@ def _analyze(img_bytes: bytes) -> str:
         return "Quota full hai. 1 minute baad Ctrl+Shift+S dobara dabaao."
     return f"Koi bhi Gemini model kaam nahi kiya. Error: {last_err[:100]}"
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# WHATSAPP SILENT SEND â€” 3 methods, fallback chain
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -------------------------------------------------
+# WHATSAPP SEND -- COMPLETELY INVISIBLE
+# No browser opens, no window switches, no focus steal
+# -------------------------------------------------
+
+# Headless Chrome session folder
+_WA_SESSION_DIR = r"C:\RealJarvis_v2\wa_headless_session"
+
+
 def _send_whatsapp(message: str, phone: str = "") -> bool:
-    """
-    WhatsApp par silently message bhejo.
-    Method 1: pywhatkit (best â€” browser briefly opens, then closes)
-    Method 2: WhatsApp Desktop URI + auto-enter
-    Method 3: Web URL via default browser + auto-enter
-    """
     phone = (phone or _WA_NUMBER).strip()
     if not phone.startswith("+"):
         phone = "+" + phone
+    phone_digits = phone.lstrip("+")
+    full_msg = "[JARVIS]\n" + message
 
-    full_msg = f"[JARVIS]\n{message}"
-    phone_no_plus = phone.lstrip("+")
-
-    # â”€â”€ Method 1: pywhatkit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    if _PYWHATKIT:
-        try:
-            _kit.sendwhatmsg_instantly(
-                phone_no=phone,
-                message=full_msg,
-                wait_time=12,
-                tab_close=True,
-                close_time=3,
-            )
-            print("[InterviewMode] âœ“ Sent via pywhatkit")
-            return True
-        except Exception as e:
-            print(f"[InterviewMode] pywhatkit failed: {e}")
-
-    # â”€â”€ Method 2: WhatsApp Desktop app URI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    try:
-        encoded = urllib.parse.quote(full_msg)
-        uri = f"whatsapp://send?phone={phone_no_plus}&text={encoded}"
-        os.startfile(uri)
-        time.sleep(3.5)
-        # Auto press Enter to send
-        if _PYAUTOGUI:
-            pyautogui.hotkey("ctrl", "End")
-            time.sleep(0.3)
-            pyautogui.press("enter")
-            time.sleep(0.5)
-            pyautogui.hotkey("alt", "f4")  # close WhatsApp after send
-        print("[InterviewMode] âœ“ Sent via WhatsApp Desktop URI")
+    # Method 1: Headless Chrome (completely invisible)
+    if _send_headless_chrome(full_msg, phone_digits):
         return True
-    except Exception as e:
-        print(f"[InterviewMode] URI method failed: {e}")
 
-    # â”€â”€ Method 3: wa.me web URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    try:
-        import webbrowser
-        encoded = urllib.parse.quote(full_msg)
-        url = f"https://api.whatsapp.com/send?phone={phone_no_plus}&text={encoded}"
-        webbrowser.open(url)
-        time.sleep(4.5)
-        if _PYAUTOGUI:
-            pyautogui.press("enter")
-        print("[InterviewMode] âœ“ Sent via wa.me URL")
-        return True
-    except Exception as e:
-        print(f"[InterviewMode] wa.me method failed: {e}")
-
-    print("[InterviewMode] âœ— ALL WhatsApp methods FAILED")
+    # Headless se nahi gaya toh log karo
+    print("[InterviewMode] Headless Chrome FAILED.")
+    print("[InterviewMode] Pehle setup karo: venv\Scripts\python.exe interview_mode.py setup")
     return False
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# INTERVIEW MODE CONTROLLER
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _send_headless_chrome(message: str, phone_digits: str) -> bool:
+    import os, time, urllib.parse
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+    except ImportError:
+        print("[InterviewMode] selenium missing: pip install selenium")
+        return False
+
+    if not os.path.isdir(_WA_SESSION_DIR):
+        print("[InterviewMode] WA session not found!")
+        print("[InterviewMode] Ek baar ye run karo: venv\\Scripts\\python.exe interview_mode.py setup")
+        return False
+
+    opts = Options()
+    opts.add_argument("--headless=new")
+    opts.add_argument(f"--user-data-dir={_WA_SESSION_DIR}")
+    opts.add_argument("--profile-directory=Default")
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--window-size=1366,768")
+    opts.add_argument("--log-level=3")
+    opts.add_experimental_option("excludeSwitches", ["enable-logging"])
+
+    driver = None
+    try:
+        from selenium.webdriver.chrome.service import Service
+        try:
+            from webdriver_manager.chrome import ChromeDriverManager
+            svc = Service(ChromeDriverManager().install(), log_path=os.devnull)
+        except Exception:
+            svc = Service(log_path=os.devnull)
+
+        driver = webdriver.Chrome(service=svc, options=opts)
+        driver.set_page_load_timeout(30)
+
+        encoded = urllib.parse.quote(message)
+        url = (
+            f"https://web.whatsapp.com/send"
+            f"?phone={phone_digits}&text={encoded}"
+            f"&type=phone_number&app_absent=0"
+        )
+        print("[InterviewMode] Headless Chrome: WhatsApp Web load kar raha hoon...")
+        driver.get(url)
+
+        wait = WebDriverWait(driver, 25)
+        send_btn = wait.until(
+            EC.element_to_be_clickable(
+                (By.XPATH, "//button[@aria-label=\'Send\']")
+            )
+        )
+        time.sleep(0.5)
+        send_btn.click()
+        time.sleep(2)
+        print("[InterviewMode] Headless send: ANSWER BHEJA -- phone check karo!")
+        return True
+
+    except Exception as e:
+        err = str(e)
+        if "session" in err.lower():
+            print("[InterviewMode] Session expired. Setup dobara karo.")
+        else:
+            print(f"[InterviewMode] Headless error: {err[:100]}")
+        return False
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+
+def _send_via_desktop_app(message: str, phone: str) -> bool:
+    import time, urllib.parse, ctypes
+    try:
+        import win32gui, win32api
+    except ImportError:
+        print("[InterviewMode] pywin32 missing: pip install pywin32")
+        return False
+
+    wa_hwnd = None
+    def _cb(hwnd, _):
+        nonlocal wa_hwnd
+        if "WhatsApp" in win32gui.GetWindowText(hwnd) and win32gui.IsWindow(hwnd):
+            wa_hwnd = hwnd
+    win32gui.EnumWindows(_cb, None)
+
+    if not wa_hwnd:
+        print("[InterviewMode] WhatsApp Desktop not open. App kholo taskbar mein.")
+        return False
+
+    try:
+        phone_digits = phone.lstrip("+")
+        encoded = urllib.parse.quote(message)
+        uri = f"whatsapp://send?phone={phone_digits}&text={encoded}"
+
+        # Minimize state mein kholo -- focus nahi lega screen par
+        SW_SHOWMINNOACTIVE = 7
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "open", uri, None, None, SW_SHOWMINNOACTIVE
+        )
+        time.sleep(3.0)
+
+        # Enter key -- bina window ko foreground kiye
+        WM_KEYDOWN = 0x0100
+        WM_KEYUP   = 0x0101
+        VK_RETURN  = 0x0D
+        win32api.PostMessage(wa_hwnd, WM_KEYDOWN, VK_RETURN, 0)
+        time.sleep(0.1)
+        win32api.PostMessage(wa_hwnd, WM_KEYUP,   VK_RETURN, 0)
+        time.sleep(0.5)
+        print("[InterviewMode] Desktop app: bheja background mein -- phone check karo!")
+        return True
+    except Exception as e:
+        print(f"[InterviewMode] Desktop app error: {e}")
+        return False
+
+
 class InterviewMode:
     def __init__(self):
         self.active = False
@@ -673,41 +752,101 @@ def check_interview_trigger(text: str, gui=None, voice=None) -> bool:
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # STANDALONE TEST â€” python interview_mode.py
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -------------------------------------------------
+# STANDALONE -- python interview_mode.py [setup]
+# -------------------------------------------------
 if __name__ == "__main__":
-    import platform
+    import platform, os, sys
+
+    # ── SETUP MODE: pehli baar QR scan ──────────────────────────────────
+    if len(sys.argv) > 1 and sys.argv[1] == "setup":
+        print("=" * 60)
+        print("  WHATSAPP WEB SESSION SETUP (ek baar hi chahiye)")
+        print("=" * 60)
+        print()
+        print("Chrome browser khulega.")
+        print("Apne phone se WhatsApp QR code scan karo.")
+        print("Scan ke baad yahan Enter dabaao.")
+        print()
+
+        os.makedirs(_WA_SESSION_DIR, exist_ok=True)
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.chrome.service import Service
+
+            opts = Options()
+            opts.add_argument(f"--user-data-dir={_WA_SESSION_DIR}")
+            opts.add_argument("--profile-directory=Default")
+            opts.add_argument("--no-sandbox")
+            opts.add_argument("--window-size=1200,800")
+            opts.add_experimental_option("excludeSwitches", ["enable-logging"])
+
+            try:
+                from webdriver_manager.chrome import ChromeDriverManager
+                svc = Service(ChromeDriverManager().install(), log_path=os.devnull)
+            except Exception:
+                svc = Service(log_path=os.devnull)
+
+            print("Chrome open ho raha hai...")
+            driver = webdriver.Chrome(service=svc, options=opts)
+            driver.get("https://web.whatsapp.com")
+
+            print()
+            print("======================================")
+            print("  >> QR code scan karo phone se <<  ")
+            print("  >> Scan ke baad ENTER dabaao   <<  ")
+            print("======================================")
+            input()
+
+            driver.quit()
+            print()
+            print("SESSION SAVE HO GAYA!")
+            print("Location:", _WA_SESSION_DIR)
+            print()
+            print("Ab interview mode mein Ctrl+Shift+S dabaao.")
+            print("Message completely invisible background mein bhejega!")
+
+        except ImportError:
+            print("ERROR: selenium not installed!")
+            print("Run: pip install selenium webdriver-manager")
+        except Exception as e:
+            print(f"Setup error: {e}")
+        sys.exit(0)
+
+    # ── NORMAL TEST MODE ─────────────────────────────────────────────────
     print("=" * 60)
-    print("  RealJarvis Interview Mode â€” STANDALONE TEST")
+    print("  RealJarvis Interview Mode -- STANDALONE TEST")
     print("=" * 60)
     print(f"  OS: {platform.system()} {platform.version()[:20]}")
     print(f"  Admin: {bool(ctypes.windll.shell32.IsUserAnAdmin())}")
     print(f"  keyboard: {_KEYBOARD}")
-    print(f"  pyautogui: {_PYAUTOGUI}")
-    print(f"  PIL: {_PIL}")
     print(f"  Gemini key: {'SET' if _GEMINI_KEY else 'MISSING'}")
-    print(f"  pywhatkit: {_PYWHATKIT}")
     print(f"  WA Number: {_WA_NUMBER}")
+    print(f"  WA Session: {'FOUND' if os.path.isdir(_WA_SESSION_DIR) else 'NOT FOUND -- run setup!'}")
     print(f"  Hotkey: {_HOTKEY}")
     print()
 
+    if not os.path.isdir(_WA_SESSION_DIR):
+        print("WARNING: WhatsApp session setup nahi hua!")
+        print("Pehle ye run karo:")
+        print(f"  venv\\Scripts\\python.exe interview_mode.py setup")
+        print()
+
     if not _KEYBOARD:
         print("FATAL: keyboard not installed. Run: pip install keyboard")
-        sys.exit(1)
-    if not _PYAUTOGUI:
-        print("FATAL: pyautogui not installed. Run: pip install pyautogui")
         sys.exit(1)
     if not _GEMINI_KEY:
         print("FATAL: GEMINI_API_KEY not set in .env file!")
         sys.exit(1)
 
-    print(f"Activating... Press {_HOTKEY} to test capture.")
-    print("Press Ctrl+C to quit.\n")
+    print(f"Activating... Press {_HOTKEY} to test capture & send.")
+    print("Press Ctrl+C to quit.")
+    print()
 
     interview_mode.activate()
-
     try:
         keyboard.wait()
     except KeyboardInterrupt:
         print("\nTest ended.")
         interview_mode.deactivate()
-
