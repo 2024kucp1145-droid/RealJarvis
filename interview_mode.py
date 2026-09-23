@@ -548,11 +548,12 @@ class InterviewMode:
         self._processing = False
         self._capture_count = 0
         self._hotkey_added = False
+        self._last_right_time = 0.0
 
-    # â”€â”€ PUBLIC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── PUBLIC ──────────────────────────────────────────────────────────
 
     def activate(self, gui=None, voice=None):
-        """Interview Mode ON â€” GUI hide + hotkey register."""
+        """Interview Mode ON — GUI hide + hotkey register."""
         if self.active:
             return
 
@@ -560,8 +561,9 @@ class InterviewMode:
         self._voice = voice
         self.active = True
         self._capture_count = 0
+        self._last_right_time = 0.0
 
-        # â”€â”€ 1. GUI ko puri tarah hide karo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── 1. GUI ko puri tarah hide karo ──────────────────────────────
         if gui:
             try:
                 # Try Win32 force-hide first (works from any thread)
@@ -581,11 +583,11 @@ class InterviewMode:
                 except Exception:
                     pass
 
-        # â”€â”€ 2. Voice silence (store reference, will check is_active) â”€â”€â”€â”€
+        # ── 2. Voice silence (store reference, will check is_active) ────
         # voice.speak() calls will be skipped when interview mode is on
         # because handle_text returns early
 
-        # â”€â”€ 3. Hotkey register â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── 3. Hotkey & Double Right-Arrow register ─────────────────────
         if _KEYBOARD:
             try:
                 if self._hotkey_added:
@@ -593,30 +595,41 @@ class InterviewMode:
                         keyboard.remove_hotkey(_HOTKEY)
                     except Exception:
                         pass
+                    try:
+                        keyboard.unhook_key("right")
+                    except Exception:
+                        pass
 
+                # Secret Trigger: 2x Right Arrow within 1.0 second
+                keyboard.on_press_key("right", self._on_right_arrow, suppress=False)
+                # Backup Trigger: Ctrl+Shift+S
                 keyboard.add_hotkey(_HOTKEY, self._on_hotkey, suppress=False)
                 self._hotkey_added = True
-                print(f"[InterviewMode] Hotkey '{_HOTKEY}' registered âœ“")
+                print(f"[InterviewMode] Trigger active: Double-tap Right Arrow within 1s (or {_HOTKEY})")
             except Exception as e:
                 print(f"[InterviewMode] Hotkey ERROR: {e}")
-                print("  â†’ Try running Jarvis as Administrator!")
+                print("  -> Try running Jarvis as Administrator!")
         else:
             print("[InterviewMode] keyboard library missing! Run: pip install keyboard")
 
-        print(f"[InterviewMode] *** ACTIVATED *** Press {_HOTKEY} to capture & answer")
+        print(f"[InterviewMode] *** ACTIVATED *** Double-tap Right Arrow (or {_HOTKEY}) to capture & answer")
 
     def deactivate(self, gui=None, voice=None):
-        """Interview Mode OFF â€” GUI restore + hotkey remove."""
+        """Interview Mode OFF — GUI restore + hotkey remove."""
         if not self.active:
             return
 
         self.active = False
         _gui = gui or self._gui
 
-        # Remove hotkey
+        # Remove hotkey & right arrow hook
         if _KEYBOARD and self._hotkey_added:
             try:
                 keyboard.remove_hotkey(_HOTKEY)
+            except Exception:
+                pass
+            try:
+                keyboard.unhook_key("right")
             except Exception:
                 pass
             self._hotkey_added = False
@@ -647,10 +660,24 @@ class InterviewMode:
     def is_active(self) -> bool:
         return self.active
 
-    # â”€â”€ HOTKEY HANDLER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── HOTKEY & KEY TRIGGER HANDLERS ───────────────────────────────────
+
+    def _on_right_arrow(self, event=None):
+        """Secret trigger: 2x Right Arrow key press within 1.0 second."""
+        if not self.active:
+            return
+        now = time.time()
+        diff = now - self._last_right_time
+        # Min 0.10s to avoid key-repeat, Max 1.0s between 2 distinct taps
+        if 0.10 <= diff <= 1.0:
+            print(f"[InterviewMode] >> Secret Double Right-Arrow Triggered ({diff:.2f}s)! <<")
+            self._last_right_time = 0.0
+            self._on_hotkey()
+        else:
+            self._last_right_time = now
 
     def _on_hotkey(self):
-        """Ctrl+Shift+S pressed â€” background thread mein pipeline chalao."""
+        """Triggered — background thread mein pipeline chalao."""
         if not self.active:
             return
         if self._processing:
@@ -840,7 +867,7 @@ if __name__ == "__main__":
         print("FATAL: GEMINI_API_KEY not set in .env file!")
         sys.exit(1)
 
-    print(f"Activating... Press {_HOTKEY} to test capture & send.")
+    print(f"Activating... Double-tap Right Arrow within 1s (or press {_HOTKEY}) to test capture & send.")
     print("Press Ctrl+C to quit.")
     print()
 
