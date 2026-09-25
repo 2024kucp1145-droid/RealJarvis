@@ -38,7 +38,7 @@ import remote_boot_wol
 
 # Load Authentication Token from environment or generate a stable default
 AUTH_TOKEN = os.environ.get("DAEMON_AUTH_TOKEN", "realjarvis-daemon-secure-token")
-DEFAULT_PORT = int(os.environ.get("DAEMON_PORT", 8765))
+DEFAULT_PORT = int(os.environ.get("PORT", os.environ.get("DAEMON_PORT", 8765)))
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):

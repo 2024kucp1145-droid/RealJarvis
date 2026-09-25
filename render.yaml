@@ -1,0 +1,19 @@
+# ============================================================
+# Render.com Blueprint for RealJarvis 24/7 Always-On Daemon
+# Connect your GitHub repo and click Apply
+# ============================================================
+services:
+  - type: web
+    name: realjarvis-daemon
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: WHATSAPP_MASTER_PHONE
+        sync: false
+      - key: DAEMON_AUTH_TOKEN
+        generateValue: true
