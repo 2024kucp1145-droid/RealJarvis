@@ -34,6 +34,17 @@ try:
 except Exception:
     pass
 
+# Check for 24/7 Always-On Daemon mode early (zero GUI / audio overhead)
+if "--daemon" in sys.argv or "-d" in sys.argv:
+    import os
+    print("=" * 60)
+    print("  Starting RealJarvis in 24/7 Always-On Daemon Mode")
+    print("=" * 60)
+    from daemon_api_server import run_api_server
+    port = int(os.environ.get("DAEMON_PORT", 8765))
+    run_api_server(port=port)
+    sys.exit(0)
+
 import config
 from voice import Voice
 from wake_listener import WakeListener
@@ -1962,8 +1973,24 @@ class Jarvis:
 
 
 if __name__ == "__main__":
+    if "--daemon" in sys.argv or "-d" in sys.argv:
+        print("=" * 60)
+        print("  Starting RealJarvis in 24/7 Always-On Daemon Mode")
+        print("=" * 60)
+        from daemon_api_server import run_api_server
+        port = int(os.environ.get("DAEMON_PORT", 8765))
+        run_api_server(port=port)
+        sys.exit(0)
+
     gui = JarvisGUI()
     jarvis = Jarvis(gui)
+
+    # Start 24/7 Persistent Mission Scheduler in background
+    try:
+        from jarvis_daemon import daemon as _jdaemon
+        _jdaemon.start()
+    except Exception as _e_dm:
+        print(f"[main] Daemon worker start notice: {_e_dm}")
 
     # Jarvis ki poori logic (mic sunna, wake, commands) background thread me
     # chalti hai. pywebview GUI hamesha MAIN thread pe chalni chahiye, isliye

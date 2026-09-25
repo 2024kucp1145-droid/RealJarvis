@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 whatsapp_mobile_bridge.py
 ==========================
@@ -54,14 +54,18 @@ class WhatsAppMobileBridge:
         self._lock = threading.Lock()
 
     def _load_config(self) -> dict:
+        env_phone = os.environ.get("WHATSAPP_MASTER_PHONE", "") or getattr(config, "WHATSAPP_MASTER_PHONE", "")
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    cfg = json.load(f)
+                    if env_phone:
+                        cfg["master_phone"] = env_phone
+                    return cfg
             except Exception:
                 pass
         default_cfg = {
-            "master_phone": "YOUR_PHONE_NUMBER",
+            "master_phone": env_phone or "YOUR_PHONE_NUMBER",
             "provider": "local",
             "auto_alerts_enabled": True,
             "twilio_account_sid": "",
@@ -506,10 +510,18 @@ class WhatsAppMobileBridge:
             import desktop_janitor
             return desktop_janitor.janitor.report_disk_space()
 
-        # 8. Fallback: Ask Jarvis Brain
+        # 8. Unified 24/7 Daemon Routing (Gemini AI + Scheduler + Tasks)
+        try:
+            from jarvis_daemon import daemon
+            daemon_res = daemon.execute_command(raw_text, sender=sender_phone or "whatsapp")
+            if daemon_res.get("reply"):
+                return daemon_res["reply"]
+        except Exception as _e_d:
+            print(f"[whatsapp_bridge daemon fallback error: {_e_d}]")
+
         if self.ai and self.ai.available():
             reply, _ = self.ai.ask(f"User ne WhatsApp ME chat se ye poocha hai: {raw_text}\nConcise 2-sentence response do.")
-            return f"ðŸ¤– *Jarvis:* {reply}"
+            return f"Jarvis: {reply}"
 
         return "Command samajh nahi aayi. 'status', 'screenshot', 'bhejo [file]', 'cmd: [command]', 'play/pause', 'sleep', ya 'wol' try karein."
 

@@ -19,6 +19,7 @@ data/chrome_whatsapp_profile/
 .env
 owner_face.jpg
 jarvis_memory.db
+*.db
 *.db-journal
 
 # Operating System & IDE Files
