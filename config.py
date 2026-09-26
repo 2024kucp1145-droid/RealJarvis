@@ -76,12 +76,14 @@ ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "cgSgspJ2msm6clMCkdW
 ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"   # Hindi, Hinglish & English natural synthesis
 
 # 100% Free Unlimited Neural Voices:
-#   "en-IN-NeerjaExpressiveNeural" -> Indian English / Hinglish Expressive Female (Rich emotion & sweet tone)
+#   "en-IN-NeerjaExpressiveNeural" -> Indian English / Hinglish Expressive Female (Rich emotion & sweet tone) ← DEFAULT
 #   "hi-IN-SwaraNeural"            -> Hindi Female
 #   "hi-IN-MadhurNeural"           -> Hindi Male
 #   "en-US-ChristopherNeural"      -> Classic Iron Man JARVIS
 ONLINE_VOICE = os.environ.get("ONLINE_VOICE", "en-IN-NeerjaExpressiveNeural")
-SPEECH_RATE = 175                    # offline voice ki speed
+SPEECH_RATE = 160                    # offline voice ki speed
+# TTS Speed Offset: edge-tts prosody ke liye global rate adjust (e.g. "-10%" = 10% slow down = meethi madhur tempo)
+TTS_RATE_OFFSET = os.environ.get("TTS_RATE_OFFSET", "-12%")  # ← default -12% slow = zyada meethi awaaz
 
 # STT (sunna): "google" (online, sabse accurate) ya "offline" (Sphinx, kam accurate)
 STT_MODE = "auto"
@@ -117,9 +119,9 @@ AI_PROVIDER = "gemini"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")          # .env mein set karo
 GEMINI_MODEL = "gemini-flash-lite-latest"   # gemini-flash-latest = 20/day quota; flash-lite has no such limit
 BARGE_IN_ENABLED = True
-BARGE_IN_THRESHOLD = 0.0030
-BARGE_IN_GRACE_SECONDS = 0.15        # Instant reaction (150ms speaker pop shield)
-BARGE_IN_SUSTAIN_BLOCKS = 2         # ~40ms speech triggers instant speech cut-off
+BARGE_IN_THRESHOLD = 0.012          # Raised: Speaker echo won't trigger this; only real loud human voice will
+BARGE_IN_GRACE_SECONDS = 0.40       # 400ms grace: speaker pop + room echo settles before barge-in opens
+BARGE_IN_SUSTAIN_BLOCKS = 4        # ~80ms of sustained voice needed (prevents false triggers from room echo)
 AI_MAX_TOKENS = 350       # kam tokens = AI response faster aata hai
 AI_HISTORY_TURNS = 4      # sirf last 4 exchanges context mein, request chhoti rehti hai
 DEFAULT_WORKING_FOLDER = os.path.join(os.path.expanduser("~"), "Documents")

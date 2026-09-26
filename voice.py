@@ -62,6 +62,28 @@ import time
 _last_net_check = 0
 _last_net_result = False
 
+# ── SELF-HEARING GUARD ──────────────────────────────────────────────────────
+# Jab Jarvis bol raha ho, tab mic BILKUL band rehti hai.
+# Isse Jarvis apni hi awaaz sun ke khud trigger nahi karta.
+IS_SPEAKING = False          # True = Jarvis is currently producing audio output
+_POST_SPEECH_DEAF_SECS = 0.30  # Mic opens 300ms AFTER Jarvis stops (echo tail guard)
+_speech_end_time = 0.0       # Epoch time when last TTS finished
+
+def _mark_speaking_start():
+    """Call when Jarvis starts producing TTS audio."""
+    global IS_SPEAKING
+    IS_SPEAKING = True
+
+def _mark_speaking_end():
+    """Call when Jarvis finishes TTS audio (including echo tail guard)."""
+    global IS_SPEAKING, _speech_end_time
+    IS_SPEAKING = False
+    _speech_end_time = time.time()
+
+def is_in_deaf_window() -> bool:
+    """Returns True if we are still in the post-speech deaf window."""
+    return IS_SPEAKING or (time.time() - _speech_end_time < _POST_SPEECH_DEAF_SECS)
+
 def has_internet(timeout=1.5) -> bool:
     global _last_net_check, _last_net_result
     now = time.time()
@@ -162,6 +184,18 @@ class Voice:
         "serious":   ("-3%",  "+2Hz"),
     }
 
+    @staticmethod
+    def _apply_rate_offset(rate: str) -> str:
+        """Applies global TTS_RATE_OFFSET on top of emotion rate for a sweeter, slower delivery."""
+        offset = getattr(config, "TTS_RATE_OFFSET", "-12%")
+        try:
+            b = int(rate.replace('%', '').replace('+', ''))
+            o = int(offset.replace('%', '').replace('+', ''))
+            total = b + o
+            return f"+{total}%" if total >= 0 else f"{total}%"
+        except Exception:
+            return rate
+
     def speak(self, text: str, interruptible: bool = True, emotion: str = "calm",
               is_first_chunk: bool = True) -> bool:
         """
@@ -183,34 +217,38 @@ class Voice:
 
         with self._speech_lock:
             print(f"Jarvis [{emotion}]: {text}")
-
-            # Priority 1: ElevenLabs Ultra-Realistic Human Voice (if API key is provided)
-            if getattr(config, "ELEVENLABS_API_KEY", "").strip() and has_internet():
-                try:
-                    did_interrupt = self._speak_elevenlabs(text, emotion=emotion, interruptible=interruptible)
-                    return did_interrupt
-                except Exception as _e_el:
-                    print(f"[voice] ElevenLabs playback failed: {_e_el}, falling back to Neural voice")
-
-            # Priority 2: High-Speed Microsoft Natural Neural Streaming Engine (100% Free, Unlimited)
-            mode = getattr(config, "TTS_MODE", "auto")
-            use_online = (mode in ("online", "edge", "auto")) and has_internet()
-            rate, pitch = self.EMOTION_PROSODY.get(emotion, self.EMOTION_PROSODY["calm"])
-
-            if use_online and edge_tts:
-                try:
-                    import streaming_audio_engine
-                    return streaming_audio_engine.streaming_engine.speak_streaming(text, emotion=emotion, interruptible=interruptible)
-                except Exception as e:
-                    print(f"[streaming audio engine fail, fallback to standard: {e}]")
+            _mark_speaking_start()
+            try:
+                # Priority 1: ElevenLabs Ultra-Realistic Human Voice (if API key is provided)
+                if getattr(config, "ELEVENLABS_API_KEY", "").strip() and has_internet():
                     try:
-                        return self._speak_online_interruptible(text, rate, pitch, is_first_chunk)
-                    except Exception:
-                        pass
+                        did_interrupt = self._speak_elevenlabs(text, emotion=emotion, interruptible=interruptible)
+                        return did_interrupt
+                    except Exception as _e_el:
+                        print(f"[voice] ElevenLabs playback failed: {_e_el}, falling back to Neural voice")
 
-            # Priority 3: Offline SAPI5 / espeak fallback
-            self._speak_offline(text, emotion)
-            return False
+                # Priority 2: High-Speed Microsoft Natural Neural Streaming Engine (100% Free, Unlimited)
+                mode = getattr(config, "TTS_MODE", "auto")
+                use_online = (mode in ("online", "edge", "auto")) and has_internet()
+                rate, pitch = self.EMOTION_PROSODY.get(emotion, self.EMOTION_PROSODY["calm"])
+                rate = self._apply_rate_offset(rate)  # Apply global speed slowdown
+
+                if use_online and edge_tts:
+                    try:
+                        import streaming_audio_engine
+                        return streaming_audio_engine.streaming_engine.speak_streaming(text, emotion=emotion, interruptible=interruptible)
+                    except Exception as e:
+                        print(f"[streaming audio engine fail, fallback to standard: {e}]")
+                        try:
+                            return self._speak_online_interruptible(text, rate, pitch, is_first_chunk)
+                        except Exception:
+                            pass
+
+                # Priority 3: Offline SAPI5 / espeak fallback
+                self._speak_offline(text, emotion)
+                return False
+            finally:
+                _mark_speaking_end()
 
     def _speak_elevenlabs(self, text: str, emotion: str = "calm", interruptible: bool = True) -> bool:
         """Plays ultra-realistic speech from ElevenLabs Multilingual v2 with streaming buffer and instant barge-in."""
@@ -477,6 +515,14 @@ class Voice:
     def _listen_raw_phrase(self, timeout=6, phrase_time_limit=10) -> str:
         """Mic se single phrase capture karta hai aur keystroke noise filter karta hai."""
         if not self.recognizer:
+            return ""
+
+        # ── SELF-HEARING GUARD ─────────────────────────────────────────────
+        # Jarvis apni hi awaaz sun ke trigger na ho iske liye:
+        # Agar Jarvis abhi bol raha hai ya abhi abhi ruka hai (300ms deaf window),
+        # toh mic ko immediately khali string return karao.
+        if is_in_deaf_window():
+            print("[voice] Mic blocked — Jarvis apni awaaz sun raha tha, skip kar raha hai.")
             return ""
 
         with sr.Microphone() as source:

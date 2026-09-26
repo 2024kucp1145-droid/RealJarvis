@@ -24,6 +24,22 @@ from typing import Optional, List, Generator
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config
 
+# Self-hearing guard: import speaking-state setters from voice module.
+# We import lazily inside the function to avoid circular import at module load time.
+def _voice_speaking_start():
+    try:
+        import voice as _v
+        _v._mark_speaking_start()
+    except Exception:
+        pass
+
+def _voice_speaking_end():
+    try:
+        import voice as _v
+        _v._mark_speaking_end()
+    except Exception:
+        pass
+
 try:
     import edge_tts
 except ImportError:
@@ -66,17 +82,31 @@ class StreamingAudioEngine:
 
         self._stop_event.clear()
         self._is_speaking = True
+        _voice_speaking_start()  # Block mic while we speak
 
         chunks = self._chunk_text(text)
         if not chunks:
             return False
 
-        # Prosody formatting
-        rate, pitch = ("+0%", "+12Hz")
-        if emotion == "excited": rate, pitch = ("+10%", "+26Hz")
-        elif emotion == "happy": rate, pitch = ("+4%", "+18Hz")
-        elif emotion == "concerned": rate, pitch = ("-4%", "+6Hz")
-        elif emotion == "sad": rate, pitch = ("-10%", "-12Hz")
+        # Prosody formatting — emotion + global TTS_RATE_OFFSET for sweet madhur tempo
+        _offset = getattr(config, "TTS_RATE_OFFSET", "-12%")  # default -12% slower = meethi awaaz
+        emotion_rate, pitch = ("+0%", "+12Hz")
+        if emotion == "excited": emotion_rate, pitch = ("+10%", "+26Hz")
+        elif emotion == "happy": emotion_rate, pitch = ("+4%", "+18Hz")
+        elif emotion == "concerned": emotion_rate, pitch = ("-4%", "+6Hz")
+        elif emotion == "sad": emotion_rate, pitch = ("-10%", "-12Hz")
+
+        # Merge offset + emotion rate (both as % values)
+        def _merge_rates(base: str, offset: str) -> str:
+            """Adds two edge-tts rate strings like '+4%' and '-12%' -> '-8%'."""
+            try:
+                b = int(base.replace('%', '').replace('+', ''))
+                o = int(offset.replace('%', '').replace('+', ''))
+                total = b + o
+                return f"+{total}%" if total >= 0 else f"{total}%"
+            except Exception:
+                return offset  # fallback to offset alone
+        rate = _merge_rates(emotion_rate, _offset)
 
         # Audio synthesizer pipeline thread
         audio_buffer_queue = queue.Queue(maxsize=4)
@@ -149,6 +179,7 @@ class StreamingAudioEngine:
                     pass
 
         self._is_speaking = False
+        _voice_speaking_end()  # Re-open mic (with 300ms echo tail guard)
         return self._stop_event.is_set() or interrupted
 
     def stop_immediately(self):
