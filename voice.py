@@ -269,8 +269,11 @@ class Voice:
             "text": text,
             "model_id": model_id,
             "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.8
+                "stability":         getattr(config, "ELEVENLABS_STABILITY",        0.65),  # 0.65 = stable, clean
+                "similarity_boost":  getattr(config, "ELEVENLABS_SIMILARITY_BOOST", 0.85),  # closer to Jessica's real voice
+                "style":             getattr(config, "ELEVENLABS_STYLE",             0.35),  # warmth & expressiveness
+                "speed":             getattr(config, "ELEVENLABS_SPEED",             0.90),  # 0.90 = thoda slow = meethi madhur
+                "use_speaker_boost": True
             }
         }
 
