@@ -67,28 +67,30 @@ TTS_MODE = os.environ.get("TTS_MODE", "auto")
 
 # ElevenLabs Ultra-Realistic Setup (.env mein set karein):
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
-# Default Voices:
-#   "pNInz6obpgDQGcFmaJgB" -> Adam (Deep, authoritative Hollywood JARVIS voice)
-#   "21m00Tcm4TlvDq8ikWAM" -> Rachel (Warm, natural female AI voice)
-#   "ErXwobaYiN019PkySvjV" -> Antoni (Conversational, smooth)
-ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
+# Female Voices:
+#   "cgSgspJ2msm6clMCkdW9" -> Jessica (Playful, Bright, Sweet & Warm Female Voice - DEFAULT)
+#   "EXAVITQu4vr4xnSDxMaL" -> Sarah (Mature, Reassuring, Confident Female Voice)
+#   "hpp4J3VqNfWAUOO0d1Us" -> Bella (Soft, Professional Female Voice)
+#   "pNInz6obpgDQGcFmaJgB" -> Adam (Deep Male JARVIS voice)
+ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "cgSgspJ2msm6clMCkdW9")
 ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"   # Hindi, Hinglish & English natural synthesis
 
 # 100% Free Unlimited Neural Voices:
-#   "hi-IN-MadhurNeural"           -> Hindi Male (Deep, clear, confident - 10x better than old Swara)
-#   "en-IN-NeerjaExpressiveNeural" -> Indian English Expressive Female (Rich emotion & intonation)
-#   "en-US-ChristopherNeural"      -> Classic Iron Man JARVIS (Deep, British/American butler tone)
+#   "en-IN-NeerjaExpressiveNeural" -> Indian English / Hinglish Expressive Female (Rich emotion & sweet tone)
 #   "hi-IN-SwaraNeural"            -> Hindi Female
-ONLINE_VOICE = os.environ.get("ONLINE_VOICE", "hi-IN-MadhurNeural")
+#   "hi-IN-MadhurNeural"           -> Hindi Male
+#   "en-US-ChristopherNeural"      -> Classic Iron Man JARVIS
+ONLINE_VOICE = os.environ.get("ONLINE_VOICE", "en-IN-NeerjaExpressiveNeural")
 SPEECH_RATE = 175                    # offline voice ki speed
 
 # STT (sunna): "google" (online, sabse accurate) ya "offline" (Sphinx, kam accurate)
 STT_MODE = "auto"
-MIC_ENERGY_MIN = 80                  # Avoid picking up subtle keyboard key clicks
-MIC_ENERGY_MAX = 250                 # Capped at 250 so mic never locks deaf
-MIC_PAUSE_THRESHOLD = 0.80          # 0.80s natural speech pause threshold (no mid-sentence cut-off)
-MIC_NON_SPEAKING_DURATION = 0.35    # 0.35s non-speaking buffer
+MIC_ENERGY_MIN = 45                  # Ultra-sensitive: picks up quiet speech across room (3-5m)
+MIC_ENERGY_MAX = 180                 # Capped at 180 so mic never locks deaf
+MIC_PAUSE_THRESHOLD = 0.45          # Snappy 0.45s speech pause threshold (instant turnaround!)
+MIC_NON_SPEAKING_DURATION = 0.20    # Fast 0.20s non-speaking buffer
 MIC_DYNAMIC_ENERGY = True           # Continuously adapt to ambient room noise
+FAR_FIELD_GAIN_MULTIPLIER = 3.5     # 3.5x far-field acoustic boost across room
 # In languages me try karega recognition (order matter karta hai - pehle wali
 # pehle try hoti hai). "en-IN" Hinglish/English dono kaafi achhe se pakà¤¡à¤¼ leta
 # hai. Chaho toh aur languages add kar sakte ho, e.g. "ta-IN" (Tamil), "te-IN" (Telugu).

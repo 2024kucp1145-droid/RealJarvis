@@ -189,11 +189,13 @@ class AcousticFilterEngine:
         rms = math.sqrt(sum_sq / float(num_samples)) if num_samples > 0 else 0.0
 
         if rms < 300:
-            gain = 2.4
+            gain = 4.2      # 4.2x boost for quiet / distant vocal signals across room (3-5m)
         elif rms < 800:
-            gain = 1.8
+            gain = 3.0      # 3.0x boost
         elif rms < 1500:
-            gain = 1.3
+            gain = 2.0      # 2.0x boost
+        elif rms < 2500:
+            gain = 1.4
         else:
             gain = 1.0
 

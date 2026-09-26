@@ -26,16 +26,16 @@ class TestMicAndScheduler(unittest.TestCase):
 
     def test_voice_mic_settings(self):
         """Verify mic sensitivity, pause threshold, and dynamic adaptation settings."""
-        self.assertEqual(config.MIC_PAUSE_THRESHOLD, 0.80)
-        self.assertEqual(config.MIC_NON_SPEAKING_DURATION, 0.35)
+        self.assertEqual(config.MIC_PAUSE_THRESHOLD, 0.45)
+        self.assertEqual(config.MIC_NON_SPEAKING_DURATION, 0.20)
         self.assertTrue(config.MIC_DYNAMIC_ENERGY)
         self.assertLessEqual(config.MIC_ENERGY_MAX, 250)
         self.assertGreaterEqual(config.MIC_ENERGY_MIN, 40)
 
         v = voice.Voice()
         if v.recognizer:
-            self.assertEqual(v.recognizer.pause_threshold, 0.80)
-            self.assertEqual(v.recognizer.non_speaking_duration, 0.35)
+            self.assertEqual(v.recognizer.pause_threshold, 0.45)
+            self.assertEqual(v.recognizer.non_speaking_duration, 0.20)
             self.assertTrue(v.recognizer.dynamic_energy_threshold)
             self.assertLessEqual(v.recognizer.energy_threshold, 250)
         self.assertIsNotNone(v._speech_lock)

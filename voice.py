@@ -136,12 +136,12 @@ class Voice:
     def __init__(self):
         self.recognizer = sr.Recognizer() if sr else None
         if self.recognizer:
-            self.recognizer.pause_threshold = getattr(config, "MIC_PAUSE_THRESHOLD", 0.80)
-            self.recognizer.non_speaking_duration = getattr(config, "MIC_NON_SPEAKING_DURATION", 0.35)
+            self.recognizer.pause_threshold = getattr(config, "MIC_PAUSE_THRESHOLD", 0.45)
+            self.recognizer.non_speaking_duration = getattr(config, "MIC_NON_SPEAKING_DURATION", 0.20)
             self.recognizer.dynamic_energy_threshold = getattr(config, "MIC_DYNAMIC_ENERGY", True)
             self.recognizer.dynamic_energy_adjustment_damping = 0.15
-            self.recognizer.dynamic_energy_ratio = 1.5
-            self.recognizer.energy_threshold = 110
+            self.recognizer.dynamic_energy_ratio = 1.2
+            self.recognizer.energy_threshold = 55
         self._calibrated = False
         self._speech_lock = threading.Lock()
         if pygame:
@@ -484,16 +484,16 @@ class Voice:
                 self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
                 self._calibrated = True
 
-            min_energy = getattr(config, "MIC_ENERGY_MIN", 80)
-            max_energy = getattr(config, "MIC_ENERGY_MAX", 250)
+            min_energy = getattr(config, "MIC_ENERGY_MIN", 45)
+            max_energy = getattr(config, "MIC_ENERGY_MAX", 180)
             if self.recognizer.energy_threshold < min_energy:
                 self.recognizer.energy_threshold = min_energy
             elif self.recognizer.energy_threshold > max_energy:
                 self.recognizer.energy_threshold = max_energy
 
             self.recognizer.dynamic_energy_threshold = getattr(config, "MIC_DYNAMIC_ENERGY", True)
-            self.recognizer.pause_threshold = getattr(config, "MIC_PAUSE_THRESHOLD", 0.80)
-            self.recognizer.non_speaking_duration = getattr(config, "MIC_NON_SPEAKING_DURATION", 0.35)
+            self.recognizer.pause_threshold = getattr(config, "MIC_PAUSE_THRESHOLD", 0.45)
+            self.recognizer.non_speaking_duration = getattr(config, "MIC_NON_SPEAKING_DURATION", 0.20)
 
             try:
                 audio = self.recognizer.listen(source, timeout=timeout,
@@ -552,15 +552,13 @@ class Voice:
 
         return result_text
 
-    def listen(self, timeout=7, phrase_time_limit=12, wait_for_thought=True) -> str:
+    def listen(self, timeout=6, phrase_time_limit=10, wait_for_thought=True) -> str:
         """
-        Continuative thought-listening with semantic completeness checking.
+        Instant snappy conversational listening with high sensitivity and zero lag.
         
-        Solves 'sun adhura reh raha hai':
-        1. Listens to user speech.
-        2. If incomplete thought or thinking pause detected, waits 2.0-2.8s for continuation.
-        3. Stitches phrases together so user is never cut off mid-thought.
-        4. When silence occurs and user stops speaking, returns full question for reasoning.
+        If a complete command/question is spoken, it returns INSTANTLY (< 0.5s).
+        Only if the sentence is explicitly trailing/incomplete (e.g. ends with 'aur', 'ki')
+        does it wait a brief 1.2s buffer for continuation.
         """
         initial_phrase = self._listen_raw_phrase(timeout=timeout, phrase_time_limit=phrase_time_limit)
         if not initial_phrase:
@@ -568,19 +566,18 @@ class Voice:
 
         accumulated = initial_phrase.strip()
 
-        # Continuative Listening Loop:
-        # Check if thought is incomplete or if user is still thinking ("2-3 sec ka wait kare")
-        while wait_for_thought:
-            incomplete = is_incomplete_thought(accumulated)
-            continuation_timeout = 2.8 if incomplete else 2.0
+        # If thought is already complete (standard command or question), return INSTANTLY!
+        # Zero unnecessary 5-7s waiting!
+        if not is_incomplete_thought(accumulated):
+            return accumulated
 
-            next_phrase = self._listen_raw_phrase(timeout=continuation_timeout, phrase_time_limit=10)
+        # Only wait for continuation if thought is explicitly incomplete (e.g. 'aur...', 'ki...')
+        if wait_for_thought:
+            print(f"[voice] Incomplete thought detected ('{accumulated}'), waiting 1.2s for continuation...")
+            next_phrase = self._listen_raw_phrase(timeout=1.2, phrase_time_limit=8)
             if next_phrase:
                 accumulated = f"{accumulated} {next_phrase.strip()}".strip()
-                print(f"[voice] Thought continued, stitched: '{accumulated}'")
-            else:
-                # Silence observed -> User finished speaking
-                break
+                print(f"[voice] Stitched continuation: '{accumulated}'")
 
         return accumulated
 
