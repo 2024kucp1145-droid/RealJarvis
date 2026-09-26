@@ -17,6 +17,7 @@ import tempfile
 import asyncio
 import uuid
 import time
+import threading
 
 import config
 
@@ -80,9 +81,14 @@ class Voice:
     def __init__(self):
         self.recognizer = sr.Recognizer() if sr else None
         if self.recognizer:
-            self.recognizer.pause_threshold = 0.28
-            self.recognizer.non_speaking_duration = 0.10
+            self.recognizer.pause_threshold = getattr(config, "MIC_PAUSE_THRESHOLD", 0.80)
+            self.recognizer.non_speaking_duration = getattr(config, "MIC_NON_SPEAKING_DURATION", 0.35)
+            self.recognizer.dynamic_energy_threshold = getattr(config, "MIC_DYNAMIC_ENERGY", True)
+            self.recognizer.dynamic_energy_adjustment_damping = 0.15
+            self.recognizer.dynamic_energy_ratio = 1.5
+            self.recognizer.energy_threshold = 110
         self._calibrated = False
+        self._speech_lock = threading.Lock()
         if pygame:
             try:
                 pygame.mixer.init()
@@ -120,43 +126,44 @@ class Voice:
         except Exception:
             pass
 
-        print(f"Jarvis [{emotion}]: {text}")
-        mode = config.TTS_MODE
-        use_online = (mode == "online") or (mode == "auto" and has_internet())
-        rate, pitch = self.EMOTION_PROSODY.get(emotion, self.EMOTION_PROSODY["calm"])
+        with self._speech_lock:
+            print(f"Jarvis [{emotion}]: {text}")
+            mode = config.TTS_MODE
+            use_online = (mode == "online") or (mode == "auto" and has_internet())
+            rate, pitch = self.EMOTION_PROSODY.get(emotion, self.EMOTION_PROSODY["calm"])
 
-        if interruptible:
-            can_interrupt = getattr(config, "BARGE_IN_ENABLED", True) and use_online and edge_tts and pygame and sd
-            if not can_interrupt:
-                missing = []
-                if not getattr(config, "BARGE_IN_ENABLED", True): missing.append("BARGE_IN_ENABLED=False")
-                if not use_online: missing.append("internet/online-mode nahi hai")
-                if not edge_tts: missing.append("edge_tts install nahi")
-                if not pygame: missing.append("pygame install nahi")
-                if not sd: missing.append("sounddevice install nahi")
-                print(f"[barge-in skip ho gaya, wajah: {', '.join(missing)}]")
-            else:
-                threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.02)
-                print(f"[barge-in active hai, threshold={threshold}]")
+            if interruptible:
+                can_interrupt = getattr(config, "BARGE_IN_ENABLED", True) and use_online and edge_tts and pygame and sd
+                if not can_interrupt:
+                    missing = []
+                    if not getattr(config, "BARGE_IN_ENABLED", True): missing.append("BARGE_IN_ENABLED=False")
+                    if not use_online: missing.append("internet/online-mode nahi hai")
+                    if not edge_tts: missing.append("edge_tts install nahi")
+                    if not pygame: missing.append("pygame install nahi")
+                    if not sd: missing.append("sounddevice install nahi")
+                    print(f"[barge-in skip ho gaya, wajah: {', '.join(missing)}]")
+                else:
+                    threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.02)
+                    print(f"[barge-in active hai, threshold={threshold}]")
+                    try:
+                        return self._speak_online_interruptible(text, rate, pitch, is_first_chunk)
+                    except Exception as e:
+                        print(f"[interruptible voice fail, normal pe switch: {e}]")
+
+            if use_online and edge_tts:
                 try:
-                    return self._speak_online_interruptible(text, rate, pitch, is_first_chunk)
+                    import streaming_audio_engine
+                    return streaming_audio_engine.streaming_engine.speak_streaming(text, emotion=emotion, interruptible=interruptible)
                 except Exception as e:
-                    print(f"[interruptible voice fail, normal pe switch: {e}]")
+                    print(f"[streaming audio engine fail, fallback to standard: {e}]")
+                    try:
+                        self._speak_online(text, rate, pitch)
+                        return False
+                    except Exception:
+                        pass
 
-        if use_online and edge_tts:
-            try:
-                import streaming_audio_engine
-                return streaming_audio_engine.streaming_engine.speak_streaming(text, emotion=emotion, interruptible=interruptible)
-            except Exception as e:
-                print(f"[streaming audio engine fail, fallback to standard: {e}]")
-                try:
-                    self._speak_online(text, rate, pitch)
-                    return False
-                except Exception:
-                    pass
-
-        self._speak_offline(text, emotion)
-        return False
+            self._speak_offline(text, emotion)
+            return False
 
     def _speak_online(self, text: str, rate: str = "+0%", pitch: str = "+0Hz"):
         """
@@ -340,13 +347,16 @@ class Voice:
                 self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
                 self._calibrated = True
 
-            self.recognizer.energy_threshold = min(
-                max(self.recognizer.energy_threshold, getattr(config, "MIC_ENERGY_MIN", 40)),
-                getattr(config, "MIC_ENERGY_MAX", 450),
-            )
-            self.recognizer.dynamic_energy_threshold = False
-            self.recognizer.pause_threshold = 0.30
-            self.recognizer.non_speaking_duration = 0.12
+            min_energy = getattr(config, "MIC_ENERGY_MIN", 40)
+            max_energy = getattr(config, "MIC_ENERGY_MAX", 250)
+            if self.recognizer.energy_threshold < min_energy:
+                self.recognizer.energy_threshold = min_energy
+            elif self.recognizer.energy_threshold > max_energy:
+                self.recognizer.energy_threshold = max_energy
+
+            self.recognizer.dynamic_energy_threshold = getattr(config, "MIC_DYNAMIC_ENERGY", True)
+            self.recognizer.pause_threshold = getattr(config, "MIC_PAUSE_THRESHOLD", 0.80)
+            self.recognizer.non_speaking_duration = getattr(config, "MIC_NON_SPEAKING_DURATION", 0.35)
 
             try:
                 audio = self.recognizer.listen(source, timeout=timeout,

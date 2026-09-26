@@ -36,6 +36,6 @@ Thumbs.db
 *.tmp
 temp/
 scratch/
+*.pdf
 
-config.py
 whatsapp_bridge_config.json

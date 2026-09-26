@@ -27,7 +27,10 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-import config
+try:
+    import config
+except ImportError:
+    config = None
 
 try:
     from google import genai
@@ -41,7 +44,12 @@ try:
 except ImportError:
     _PSUTIL_AVAILABLE = False
 
-import remote_boot_wol
+try:
+    import remote_boot_wol
+    _WOL_AVAILABLE = True
+except ImportError:
+    remote_boot_wol = None
+    _WOL_AVAILABLE = False
 
 # Database location
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")

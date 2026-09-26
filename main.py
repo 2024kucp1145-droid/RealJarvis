@@ -171,6 +171,24 @@ class Jarvis:
         self.video_path = None
         self._sentries_started = False
 
+        # Sequential Message Scheduler (FIFO multi-query processing & collision prevention)
+        import message_scheduler
+        self.scheduler = message_scheduler.MessageScheduler(dispatch_fn=self._execute_scheduled_query, gui=self.gui)
+        self.scheduler.start()
+
+    def _execute_scheduled_query(self, text: str) -> bool:
+        """Executes a single scheduled query from the sequential queue."""
+        try:
+            return self.handle_text(text)
+        except Exception as e:
+            print(f"[scheduled query execution error: {e}]")
+            self.speak("Query execute karne me dikkat aa gayi.", emotion="concerned")
+            return True
+
+    def enqueue_query(self, text: str, source: str = "general", wait: bool = False) -> list:
+        """Enqueues queries in FIFO order and returns scheduled tasks."""
+        return self.scheduler.enqueue(text, source=source, wait=wait)
+
     def start_background_sentries(self):
         """Starts all proactive background sentries ONLY after successful password/face login."""
         if self._sentries_started:
@@ -198,9 +216,9 @@ class Jarvis:
         # Phase 9: Start desktop janitor
         desktop_janitor.janitor.start(voice=self.voice, ai=self.ai, gui=self.gui, speak_fn=self.speak)
         # Phase 10: Start autonomous evolution & multi-step mission planner
-        autonomous_evolution.evolution.start(voice=self.voice, ai=self.ai, gui=self.gui, speak_fn=self.speak, dispatcher_fn=self.handle_text)
+        autonomous_evolution.evolution.start(voice=self.voice, ai=self.ai, gui=self.gui, speak_fn=self.speak, dispatcher_fn=self.enqueue_query)
         # Mobile Bridge: Start WhatsApp daemon (notifications-based, no Chrome)
-        whatsapp_mobile_bridge.bridge.start(voice=self.voice, ai=self.ai, gui=self.gui, speak_fn=self.speak, dispatcher_fn=self.handle_text)
+        whatsapp_mobile_bridge.bridge.start(voice=self.voice, ai=self.ai, gui=self.gui, speak_fn=self.speak, dispatcher_fn=self.enqueue_query)
         # Self-Evolution: Start autonomous skill synthesizer engine
         self_evolution_engine.evolution_engine.start(voice=self.voice, ai=self.ai, gui=self.gui, speak_fn=self.speak)
         # Morning Stark Briefing: Start daily morning intelligence sentry
@@ -348,6 +366,10 @@ class Jarvis:
             morning_briefing_sentry.briefing_sentry.stop()
         except Exception:
             pass
+        try:
+            self.scheduler.stop()
+        except Exception:
+            pass
 
         try:
             self.wake_listener.stop()
@@ -416,8 +438,17 @@ class Jarvis:
                 self_modify.perform_modification(self.voice, self.ai, text)
                 continue
 
-            should_continue = self.handle_text(text)
-            if not should_continue:
+            clean_lower = text.strip().lower()
+            if any(w in clean_lower for w in ("so jao", "sleep jarvis", "go to sleep", "bye jarvis", "alvida jarvis", "exit jarvis")):
+                should_continue = self.handle_text(text)
+                if not should_continue:
+                    break
+                continue
+
+            # Route through Sequential FIFO Scheduler
+            # Splits compound queries ("aur", "and also", "?") and answers sequentially
+            self.enqueue_query(text, source="voice", wait=True)
+            if not self.running or getattr(self.gui, "state", "") == "sleeping":
                 break
         
 
@@ -1837,14 +1868,12 @@ class Jarvis:
         self.speak("Floating Mode mein wapas aa gayi. Ab robot widget pe kaam karungi.", "calm")
 
     def handle_chat_message(self, text: str):
-        """Chat se typed message aaya — same voice command ki tarah process karo."""
+        """Chat se typed message aaya — queue me schedule karo (FIFO execution, zero collision)."""
         if not text:
             return
         self.chat_gui.set_typing(True)
         try:
-            should_continue = self.handle_text(text)
-            if not should_continue:
-                pass  # command ne khatam kiya, ignore
+            self.enqueue_query(text, source="chat", wait=False)
         except Exception as e:
             print(f"[chat message error: {e}]")
             self.speak("Kuch error aa gayi chat mein.", "concerned")
@@ -1862,10 +1891,10 @@ class Jarvis:
             text = self.voice.listen(timeout=7, phrase_time_limit=10)
             if text:
                 self.chat_gui.add_user_message(text)
-                self.handle_chat_message(text)
+                self.enqueue_query(text, source="chat_voice", wait=False)
             else:
                 self.chat_gui.add_jarvis_message("Kuch sunayi nahi diya, dobara boliye.", "concerned")
-                self.chat_gui.set_typing(False)
+            self.chat_gui.set_typing(False)
 
         threading.Thread(target=_listen_thread, daemon=True).start()
         
