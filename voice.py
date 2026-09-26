@@ -183,27 +183,19 @@ class Voice:
 
         with self._speech_lock:
             print(f"Jarvis [{emotion}]: {text}")
-            mode = config.TTS_MODE
-            use_online = (mode == "online") or (mode == "auto" and has_internet())
-            rate, pitch = self.EMOTION_PROSODY.get(emotion, self.EMOTION_PROSODY["calm"])
 
-            if interruptible:
-                can_interrupt = getattr(config, "BARGE_IN_ENABLED", True) and use_online and edge_tts and pygame and sd
-                if not can_interrupt:
-                    missing = []
-                    if not getattr(config, "BARGE_IN_ENABLED", True): missing.append("BARGE_IN_ENABLED=False")
-                    if not use_online: missing.append("internet/online-mode nahi hai")
-                    if not edge_tts: missing.append("edge_tts install nahi")
-                    if not pygame: missing.append("pygame install nahi")
-                    if not sd: missing.append("sounddevice install nahi")
-                    print(f"[barge-in skip ho gaya, wajah: {', '.join(missing)}]")
-                else:
-                    threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.02)
-                    print(f"[barge-in active hai, threshold={threshold}]")
-                    try:
-                        return self._speak_online_interruptible(text, rate, pitch, is_first_chunk)
-                    except Exception as e:
-                        print(f"[interruptible voice fail, normal pe switch: {e}]")
+            # Priority 1: ElevenLabs Ultra-Realistic Human Voice (if API key is provided)
+            if getattr(config, "ELEVENLABS_API_KEY", "").strip() and has_internet():
+                try:
+                    did_interrupt = self._speak_elevenlabs(text, emotion=emotion, interruptible=interruptible)
+                    return did_interrupt
+                except Exception as _e_el:
+                    print(f"[voice] ElevenLabs playback failed: {_e_el}, falling back to Neural voice")
+
+            # Priority 2: High-Speed Microsoft Natural Neural Streaming Engine (100% Free, Unlimited)
+            mode = getattr(config, "TTS_MODE", "auto")
+            use_online = (mode in ("online", "edge", "auto")) and has_internet()
+            rate, pitch = self.EMOTION_PROSODY.get(emotion, self.EMOTION_PROSODY["calm"])
 
             if use_online and edge_tts:
                 try:
@@ -212,12 +204,102 @@ class Voice:
                 except Exception as e:
                     print(f"[streaming audio engine fail, fallback to standard: {e}]")
                     try:
-                        self._speak_online(text, rate, pitch)
-                        return False
+                        return self._speak_online_interruptible(text, rate, pitch, is_first_chunk)
                     except Exception:
                         pass
 
+            # Priority 3: Offline SAPI5 / espeak fallback
             self._speak_offline(text, emotion)
+            return False
+
+    def _speak_elevenlabs(self, text: str, emotion: str = "calm", interruptible: bool = True) -> bool:
+        """Plays ultra-realistic speech from ElevenLabs Multilingual v2 with streaming buffer and instant barge-in."""
+        api_key = getattr(config, "ELEVENLABS_API_KEY", "").strip()
+        if not api_key:
+            return False
+
+        voice_id = getattr(config, "ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
+        model_id = getattr(config, "ELEVENLABS_MODEL_ID", "eleven_multilingual_v2")
+
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg"
+        }
+        payload = {
+            "text": text,
+            "model_id": model_id,
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.8
+            }
+        }
+
+        try:
+            import requests
+            import io
+            print("[voice] Synthesizing via ElevenLabs Ultra-Realistic AI Engine...")
+            resp = requests.post(url, json=payload, headers=headers, stream=True, timeout=12)
+            if resp.status_code != 200:
+                print(f"[elevenlabs] API returned HTTP {resp.status_code}: {resp.text[:120]}, falling back to Neural voice")
+                return False
+
+            audio_buf = io.BytesIO()
+            for chunk in resp.iter_content(chunk_size=4096):
+                if chunk:
+                    audio_buf.write(chunk)
+            audio_buf.seek(0)
+
+            pygame.mixer.music.load(audio_buf)
+            pygame.mixer.music.play()
+
+            interrupted = False
+            start_time = time.time()
+            grace_period = getattr(config, "BARGE_IN_GRACE_SECONDS", 0.15)
+            barge_threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.0030)
+            consecutive_loud = 0
+
+            def mic_callback(indata, frames, time_info, status):
+                nonlocal interrupted, consecutive_loud
+                if time.time() - start_time < grace_period:
+                    return
+                vol = float(np.linalg.norm(indata) / len(indata)) if len(indata) else 0.0
+                if vol > barge_threshold:
+                    consecutive_loud += 1
+                else:
+                    consecutive_loud = 0
+                if consecutive_loud >= 2:
+                    interrupted = True
+                    print("[voice] INSTANT BARGE-IN TRIGGERED ON ELEVENLABS STREAM!")
+
+            mic_stream = None
+            if interruptible and sd and np:
+                try:
+                    mic_stream = sd.InputStream(channels=1, samplerate=16000, blocksize=1024, callback=mic_callback)
+                    mic_stream.start()
+                except Exception:
+                    mic_stream = None
+
+            try:
+                while pygame.mixer.music.get_busy():
+                    if interrupted:
+                        pygame.mixer.music.stop()
+                        break
+                    time.sleep(0.02)
+            finally:
+                if mic_stream:
+                    try:
+                        mic_stream.stop()
+                        mic_stream.close()
+                    except Exception:
+                        pass
+                pygame.mixer.music.unload()
+
+            return interrupted
+
+        except Exception as e:
+            print(f"[elevenlabs] Error: {e}, falling back to Neural voice")
             return False
 
     def _speak_online(self, text: str, rate: str = "+0%", pitch: str = "+0Hz"):

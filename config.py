@@ -57,14 +57,29 @@ CLAP_COUNT_REQUIRED = 2
 CLAP_WINDOW_SECONDS = 1.5          # dono taaliyon ke beech max gap
 PICOVOICE_ACCESS_KEY = ""          # Optional: Picovoice free key for 0.01s instant edge wake-word
 
-# ---------------- VOICE ----------------
-# TTS ENGINE:
-#   "offline" -> pyttsx3 (Windows ki built-in SAPI5 voice, bilkul offline)
-#   "online"  -> edge-tts (Microsoft ka natural Hindi female voice "hi-IN-SwaraNeural",
-#                internet chahiye, lekin bahut zyada pyaari/natural sunayi deti hai)
-#   "auto"    -> jab internet ho tab online, warna offline (RECOMMENDED)
-TTS_MODE = "auto"
-ONLINE_VOICE = "hi-IN-SwaraNeural"   # pyaari Hindi female voice (Microsoft Edge TTS)
+# ---------------- VOICE & TTS ----------------
+# TTS ENGINE & PROVIDERS:
+#   "auto"       -> ElevenLabs (agar key set ho), warna high-speed Microsoft Neural (Madhur / NeerjaExpressive / Christopher)
+#   "elevenlabs" -> ElevenLabs Ultra-Realistic AI Voice (10k chars free/month per account on elevenlabs.io)
+#   "edge"       -> 100% Free Unlimited Neural Voice (Deep human clarity, zero cost)
+#   "offline"    -> SAPI5 / espeak offline fallback
+TTS_MODE = os.environ.get("TTS_MODE", "auto")
+
+# ElevenLabs Ultra-Realistic Setup (.env mein set karein):
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
+# Default Voices:
+#   "pNInz6obpgDQGcFmaJgB" -> Adam (Deep, authoritative Hollywood JARVIS voice)
+#   "21m00Tcm4TlvDq8ikWAM" -> Rachel (Warm, natural female AI voice)
+#   "ErXwobaYiN019PkySvjV" -> Antoni (Conversational, smooth)
+ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
+ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"   # Hindi, Hinglish & English natural synthesis
+
+# 100% Free Unlimited Neural Voices:
+#   "hi-IN-MadhurNeural"           -> Hindi Male (Deep, clear, confident - 10x better than old Swara)
+#   "en-IN-NeerjaExpressiveNeural" -> Indian English Expressive Female (Rich emotion & intonation)
+#   "en-US-ChristopherNeural"      -> Classic Iron Man JARVIS (Deep, British/American butler tone)
+#   "hi-IN-SwaraNeural"            -> Hindi Female
+ONLINE_VOICE = os.environ.get("ONLINE_VOICE", "hi-IN-MadhurNeural")
 SPEECH_RATE = 175                    # offline voice ki speed
 
 # STT (sunna): "google" (online, sabse accurate) ya "offline" (Sphinx, kam accurate)
