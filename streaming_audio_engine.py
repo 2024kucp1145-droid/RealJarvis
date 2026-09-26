@@ -34,6 +34,13 @@ try:
 except ImportError:
     pygame = None
 
+try:
+    import sounddevice as sd
+    import numpy as np
+except (ImportError, OSError):
+    sd = None
+    np = None
+
 
 class StreamingAudioEngine:
     def __init__(self):
@@ -80,32 +87,69 @@ class StreamingAudioEngine:
         )
         synth_thread.start()
 
-        # Consumer: Play audio as soon as chunks arrive in RAM
+        # Consumer: Play audio as soon as chunks arrive in RAM with sub-50ms Barge-In
         interrupted = False
-        while not self._stop_event.is_set():
+        start_time = time.time()
+        consecutive_loud = 0
+        barge_threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.0030)
+        grace_period = 0.15  # Instant reaction (150ms speaker transient shield)
+
+        def mic_callback(indata, frames, time_info, status):
+            nonlocal interrupted, consecutive_loud
+            if self._stop_event.is_set():
+                return
+            if time.time() - start_time < grace_period:
+                return
+            vol = float(np.linalg.norm(indata) / len(indata)) if len(indata) else 0.0
+            if vol > barge_threshold:
+                consecutive_loud += 1
+            else:
+                consecutive_loud = 0
+            if consecutive_loud >= 2:  # ~40ms speech
+                interrupted = True
+                print("[streaming_audio_engine] INSTANT BARGE-IN INTERRUPTION TRIGGERED!")
+                self.stop_immediately()
+
+        mic_stream = None
+        if interruptible and sd and np:
             try:
-                buf = audio_buffer_queue.get(timeout=4.0)
-                if buf is None:  # End of stream sentinel
-                    break
-
-                # Play chunk from RAM
-                buf.seek(0)
-                pygame.mixer.music.load(buf)
-                pygame.mixer.music.play()
-
-                while pygame.mixer.music.get_busy() and not self._stop_event.is_set():
-                    time.sleep(0.02)
-
-                pygame.mixer.music.unload()
-
-            except queue.Empty:
-                break
+                mic_stream = sd.InputStream(channels=1, samplerate=16000, blocksize=1024, callback=mic_callback)
+                mic_stream.start()
             except Exception as e:
-                print(f"[streaming_audio_engine] Playback error: {e}")
-                break
+                mic_stream = None
+
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    buf = audio_buffer_queue.get(timeout=4.0)
+                    if buf is None:  # End of stream sentinel
+                        break
+
+                    # Play chunk from RAM
+                    buf.seek(0)
+                    pygame.mixer.music.load(buf)
+                    pygame.mixer.music.play()
+
+                    while pygame.mixer.music.get_busy() and not self._stop_event.is_set():
+                        time.sleep(0.02)
+
+                    pygame.mixer.music.unload()
+
+                except queue.Empty:
+                    break
+                except Exception as e:
+                    print(f"[streaming_audio_engine] Playback error: {e}")
+                    break
+        finally:
+            if mic_stream:
+                try:
+                    mic_stream.stop()
+                    mic_stream.close()
+                except Exception:
+                    pass
 
         self._is_speaking = False
-        return self._stop_event.is_set()
+        return self._stop_event.is_set() or interrupted
 
     def stop_immediately(self):
         """Immediately halts speech playback and purges in-memory queues (Barge-In)."""

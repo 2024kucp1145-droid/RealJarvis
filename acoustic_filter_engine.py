@@ -125,6 +125,19 @@ class AcousticFilterEngine:
             "duration": round(duration, 3)
         }
 
+    def is_pre_stt_keystroke(self, pcm_bytes: bytes, sample_rate: int = 16000) -> bool:
+        """Fast pre-recognition filter: Rejects mechanical keyboard transients before STT."""
+        if not self.keystroke_suppression_enabled or not pcm_bytes:
+            return False
+        idle_time = self.get_time_since_last_user_input()
+        if idle_time < 1.25:  # User typed within last 1.25s
+            feats = self.extract_features(pcm_bytes, sample_rate)
+            # Mechanical key clicks have sharp crest factors and short duration
+            if feats["crest"] >= 2.8 and (feats["duration"] <= 0.70 or feats["rms"] < 350):
+                self._suppressed_keystrokes_count += 1
+                return True
+        return False
+
     def is_keystroke_transient(self, pcm_bytes: bytes, sample_rate: int = 16000, text: str = "") -> bool:
         """Determines whether the captured audio is a keyboard click or mechanical transient."""
         if not self.keystroke_suppression_enabled:
@@ -132,24 +145,27 @@ class AcousticFilterEngine:
 
         feats = self.extract_features(pcm_bytes, sample_rate)
         idle_time = self.get_time_since_last_user_input()
-        is_typing = idle_time < 0.45
+        is_typing = idle_time < 1.25
 
         clean_text = text.strip().lower()
         noise_syllables = {
             "k", "t", "c", "d", "p", "f", "s", "sh", "ch", "th", "g", "b", "m", "n",
             "the", "uh", "um", "ah", "click", "tap", "space", "enter", "key", "typing",
-            "a", "i", "o", "u", "e", "tu", "ko", "ki", "ka", "se", "pe", "."
+            "a", "i", "o", "u", "e", "tu", "ko", "ki", "ka", "se", "pe", ".", "hi", "ha",
+            "ok", "haan", "to", "you", "so", "and", "aur", "in", "it", "is"
         }
         
-        if is_typing and (clean_text in noise_syllables or len(clean_text) <= 2):
-            self._suppressed_keystrokes_count += 1
-            return True
+        words = clean_text.split()
+        if is_typing:
+            # During active typing, reject phantom 1-3 word transcriptions or noise syllables
+            if clean_text in noise_syllables or len(words) <= 3 or len(clean_text) <= 5:
+                self._suppressed_keystrokes_count += 1
+                return True
+            if feats["crest"] >= 2.8 and feats["duration"] <= 0.70:
+                self._suppressed_keystrokes_count += 1
+                return True
 
-        if feats["duration"] <= 0.08 and feats["crest"] >= 4.0:
-            self._suppressed_keystrokes_count += 1
-            return True
-
-        if is_typing and feats["crest"] > 3.8 and feats["duration"] < 0.40:
+        if feats["duration"] <= 0.12 and feats["crest"] >= 3.5:
             self._suppressed_keystrokes_count += 1
             return True
 
@@ -158,6 +174,10 @@ class AcousticFilterEngine:
     def apply_far_field_agc(self, pcm_bytes: bytes, sample_rate: int = 16000) -> bytes:
         """Dynamically boosts far-field quiet vocal signals (2.0x - 3.2x) with a smooth soft limiter."""
         if not self.far_field_agc_enabled or not pcm_bytes:
+            return pcm_bytes
+
+        # Never amplify keyboard clicks during active typing
+        if self.is_user_actively_typing(threshold_seconds=1.25):
             return pcm_bytes
 
         num_samples = len(pcm_bytes) // 2
@@ -169,11 +189,11 @@ class AcousticFilterEngine:
         rms = math.sqrt(sum_sq / float(num_samples)) if num_samples > 0 else 0.0
 
         if rms < 300:
-            gain = 3.0
+            gain = 2.4
         elif rms < 800:
-            gain = 2.2
+            gain = 1.8
         elif rms < 1500:
-            gain = 1.4
+            gain = 1.3
         else:
             gain = 1.0
 

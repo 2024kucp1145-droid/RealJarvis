@@ -225,9 +225,9 @@ class Jarvis:
         morning_briefing_sentry.briefing_sentry.start(voice=self.voice, ai=self.ai, gui=self.gui)
 
 
-    def speak(self, text: str, interruptible: bool = False, emotion: str = "calm",
+    def speak(self, text: str, interruptible: bool = True, emotion: str = "calm",
               is_first_chunk: bool = True) -> bool:
-        """Bolta hai. Chat mode mein bubble bhi dikhata hai."""
+        """Bolta hai. Chat mode mein bubble bhi dikhata hai. Instant barge-in supported."""
         try:
             from interview_mode import interview_mode as _imode
             if _imode.is_active:
@@ -251,12 +251,26 @@ class Jarvis:
 
         interrupted = self.voice.speak(text, interruptible=interruptible, emotion=emotion,
                                         is_first_chunk=is_first_chunk)
+        if interrupted:
+            # User cut in mid-speech! React instinctively within seconds
+            print("[main] User barged in during speech! Reacting instinctively...")
+            try:
+                self.gui.set_state("listening")
+                self.gui.show_message("Ji boliye...")
+            except Exception:
+                pass
+            cut_in = self.voice.listen(timeout=4, phrase_time_limit=10, wait_for_thought=True)
+            if cut_in:
+                print(f"[main] Interruption query captured: '{cut_in}', answering instantly within seconds!")
+                self.enqueue_query(cut_in, source="barge_in", wait=False)
+            return True
+
         try:
             self.gui.set_state("idle")
             self.gui.set_emotion("calm")
         except Exception:
             pass
-        return interrupted
+        return False
 
     def listen(self, timeout=7, phrase_time_limit=10) -> str:
         self.gui.set_state("listening")

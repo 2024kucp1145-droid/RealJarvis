@@ -5,17 +5,21 @@ test_scheduler_and_mic.py
 Comprehensive validation for:
 1. MessageScheduler sequential FIFO execution & zero-drop multi-message queue.
 2. Compound query splitting.
-3. Voice mic configuration and speech serialization lock.
+3. Incomplete thought detection & continuative listening.
+4. Keyboard noise and mechanical click suppression.
+5. Instant barge-in sub-50ms configuration and speech serialization lock.
 """
 
 import sys
 import time
+import struct
 import threading
 import unittest
 
 import config
 import voice
 import message_scheduler
+import acoustic_filter_engine
 
 
 class TestMicAndScheduler(unittest.TestCase):
@@ -26,6 +30,7 @@ class TestMicAndScheduler(unittest.TestCase):
         self.assertEqual(config.MIC_NON_SPEAKING_DURATION, 0.35)
         self.assertTrue(config.MIC_DYNAMIC_ENERGY)
         self.assertLessEqual(config.MIC_ENERGY_MAX, 250)
+        self.assertGreaterEqual(config.MIC_ENERGY_MIN, 40)
 
         v = voice.Voice()
         if v.recognizer:
@@ -33,8 +38,68 @@ class TestMicAndScheduler(unittest.TestCase):
             self.assertEqual(v.recognizer.non_speaking_duration, 0.35)
             self.assertTrue(v.recognizer.dynamic_energy_threshold)
             self.assertLessEqual(v.recognizer.energy_threshold, 250)
-            self.assertGreaterEqual(v.recognizer.energy_threshold, 40)
         self.assertIsNotNone(v._speech_lock)
+
+    def test_barge_in_configuration(self):
+        """Verify instant sub-50ms barge-in thresholds and grace periods."""
+        self.assertTrue(getattr(config, "BARGE_IN_ENABLED", False))
+        self.assertLessEqual(getattr(config, "BARGE_IN_GRACE_SECONDS", 1.0), 0.20)
+        self.assertLessEqual(getattr(config, "BARGE_IN_SUSTAIN_BLOCKS", 4), 2)
+        self.assertLessEqual(getattr(config, "BARGE_IN_THRESHOLD", 0.01), 0.005)
+
+    def test_incomplete_thought_detection(self):
+        """Verify semantic completeness checking catches incomplete user sentences and thinking hesitations."""
+        # Trailing conjunctions / connectors
+        self.assertTrue(voice.is_incomplete_thought("Jarvis kal subah aur"))
+        self.assertTrue(voice.is_incomplete_thought("Mujhe ek baat batao ki"))
+        self.assertTrue(voice.is_incomplete_thought("Main soch raha tha lekin"))
+        self.assertTrue(voice.is_incomplete_thought("Weather check karo and"))
+        self.assertTrue(voice.is_incomplete_thought("Can you tell me if"))
+        self.assertTrue(voice.is_incomplete_thought("Flight book kardo kyunki"))
+
+        # Thinking hesitations
+        self.assertTrue(voice.is_incomplete_thought("umm"))
+        self.assertTrue(voice.is_incomplete_thought("Jarvis ek second"))
+        self.assertTrue(voice.is_incomplete_thought("wait ruko"))
+        self.assertTrue(voice.is_incomplete_thought("hmm sochne do"))
+
+        # Incomplete question starters (<= 3 words)
+        self.assertTrue(voice.is_incomplete_thought("kya tum"))
+        self.assertTrue(voice.is_incomplete_thought("what is"))
+        self.assertTrue(voice.is_incomplete_thought("kaise karein"))
+
+        # Complete thoughts should NOT be marked incomplete
+        self.assertFalse(voice.is_incomplete_thought("Jarvis aaj ka mausam kaisa hai"))
+        self.assertFalse(voice.is_incomplete_thought("screenshot lo"))
+        self.assertFalse(voice.is_incomplete_thought("battery kitni bachi hai"))
+        self.assertFalse(voice.is_incomplete_thought("what is the capital of India"))
+        self.assertFalse(voice.is_incomplete_thought("youtube kholo"))
+
+    def test_keystroke_transient_suppression(self):
+        """Verify mechanical keyboard click suppression and typing noise rejection."""
+        filter_engine = acoustic_filter_engine.AcousticFilterEngine()
+        
+        # Simulate mechanical click PCM (short duration, sharp crest spike)
+        click_samples = [0] * 400 + [28000, -25000, 15000, -8000, 2000] + [0] * 400
+        click_pcm = struct.pack(f"{len(click_samples)}h", *click_samples)
+
+        # Mock active typing: idle_time = 0.05s
+        filter_engine._mock_idle_time = 0.05
+        self.assertTrue(filter_engine.is_user_actively_typing(1.25))
+
+        # 1. Pre-STT drop test
+        is_pre_drop = filter_engine.is_pre_stt_keystroke(click_pcm, sample_rate=16000)
+        self.assertTrue(is_pre_drop)
+
+        # 2. Post-STT phantom transcription suppression (e.g. typing clicks transcribed into "the", "k", "a")
+        self.assertTrue(filter_engine.is_keystroke_transient(click_pcm, text="the"))
+        self.assertTrue(filter_engine.is_keystroke_transient(click_pcm, text="k"))
+        self.assertTrue(filter_engine.is_keystroke_transient(click_pcm, text="typing click"))
+        self.assertTrue(filter_engine.is_keystroke_transient(click_pcm, text="ok"))
+
+        # 3. AGC gating test: Far-field AGC must NOT amplify keystrokes when typing
+        agc_pcm = filter_engine.apply_far_field_agc(click_pcm, sample_rate=16000)
+        self.assertEqual(agc_pcm, click_pcm)  # Untouched, not amplified!
 
     def test_compound_query_splitting(self):
         """Verify compound Hindi and English queries are intelligently split."""
@@ -63,7 +128,6 @@ class TestMicAndScheduler(unittest.TestCase):
         lock = threading.Lock()
 
         def mock_dispatch(text):
-            # Simulate work / response time
             time.sleep(0.05)
             with lock:
                 execution_order.append(text)

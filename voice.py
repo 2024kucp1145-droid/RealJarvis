@@ -77,6 +77,61 @@ def has_internet(timeout=1.5) -> bool:
     return _last_net_result
 
 
+def is_incomplete_thought(text: str) -> bool:
+    """
+    Detects whether an utterance is an incomplete thought, hanging clause,
+    or trailing thinking hesitation in Hindi or English.
+    """
+    if not text:
+        return False
+    words = text.strip().lower().split()
+    if not words:
+        return False
+
+    last_word = words[-1].strip(".,?!:;-")
+    first_word = words[0].strip(".,?!:;-")
+
+    # Incomplete trailing conjunctions / connectors / prepositions
+    TRAILING_CONNECTORS = {
+        # Hindi
+        "ki", "aur", "toh", "to", "lekin", "par", "kyunki", "matlab", "jaise",
+        "agar", "jab", "kahan", "kaise", "waise", "sun", "suno", "yaar", "achha",
+        "batao na", "bata do na", "ek", "do", "kuch", "jo", "woh", "wo", "mere", "mera", "meri",
+        "apna", "apne", "apni", "ka", "ke", "ko", "se", "pe", "par", "mein", "me", "fir", "phir",
+        # English
+        "and", "or", "because", "so", "that", "if", "but", "then", "like", "when",
+        "who", "what", "where", "how", "to", "for", "with", "about", "by", "of", "my",
+        "your", "our", "the", "a", "an", "this", "that", "these", "those", "is", "are"
+    }
+    if last_word in TRAILING_CONNECTORS:
+        return True
+
+    # Thinking markers / fillers
+    THINKING_MARKERS = {
+        "umm", "uhh", "hmm", "ek second", "ek minute", "ruko", "sochne do",
+        "wait", "hang on", "hold on", "let me think", "actually", "basically"
+    }
+    if any(m in text.lower() for m in THINKING_MARKERS):
+        return True
+
+    # Fragmentary question (starts with question word but has <= 3 words)
+    QUESTION_STARTERS = {"kya", "kaise", "kyun", "kab", "kahan", "kaun", "what", "how", "why", "when", "where", "who"}
+    if first_word in QUESTION_STARTERS and len(words) <= 3:
+        return True
+
+    # Complete short imperative commands with terminal verbs
+    TERMINAL_ACTION_VERBS = {
+        "kholo", "chalu", "band", "ruko", "batao", "dikhao", "sunao", "status", "screenshot",
+        "help", "lo", "le", "karo", "do", "bhejo", "send", "stop", "exit", "quit", "start",
+        "open", "close", "sleep", "so", "banao", "chalao", "padho", "read", "type", "likho",
+        "search", "play", "pause", "mute", "unmute", "save", "commit", "lock"
+    }
+    if len(words) <= 2 and last_word not in TERMINAL_ACTION_VERBS:
+        return True
+
+    return False
+
+
 class Voice:
     def __init__(self):
         self.recognizer = sr.Recognizer() if sr else None
@@ -107,7 +162,7 @@ class Voice:
         "serious":   ("-3%",  "+2Hz"),
     }
 
-    def speak(self, text: str, interruptible: bool = False, emotion: str = "calm",
+    def speak(self, text: str, interruptible: bool = True, emotion: str = "calm",
               is_first_chunk: bool = True) -> bool:
         """
         Bolta hai, emotion ke hisaab se tone/speed thodi badal jaati hai.
@@ -293,17 +348,15 @@ class Voice:
         peak_volume = 0.0
         start_time = time.time()
 
-        if is_first_chunk:
-            grace_period = getattr(config, "BARGE_IN_GRACE_SECONDS", 1.2)
-        else:
-            grace_period = getattr(config, "BARGE_IN_GRACE_SECONDS_LATER", 0.1)
+        grace_period = getattr(config, "BARGE_IN_GRACE_SECONDS", 0.15) if is_first_chunk else 0.05
 
         try:
             pygame.mixer.music.load(audio_buffer)
             pygame.mixer.music.play()
 
             consecutive_loud = 0
-            SUSTAIN_BLOCKS_NEEDED = getattr(config, "BARGE_IN_SUSTAIN_BLOCKS", 4)
+            SUSTAIN_BLOCKS_NEEDED = getattr(config, "BARGE_IN_SUSTAIN_BLOCKS", 2)
+            barge_threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.0030)
 
             def callback(indata, frames, time_info, status):
                 nonlocal interrupted, peak_volume, consecutive_loud
@@ -313,12 +366,13 @@ class Voice:
                     return
                 volume = float(np.linalg.norm(indata) / len(indata)) if len(indata) else 0.0
                 peak_volume = max(peak_volume, volume)
-                if volume > getattr(config, "BARGE_IN_THRESHOLD", 0.0025):
+                if volume > barge_threshold:
                     consecutive_loud += 1
                 else:
                     consecutive_loud = 0
                 if consecutive_loud >= SUSTAIN_BLOCKS_NEEDED:
                     interrupted = True
+                    print("[voice] INSTANT USER BARGE-IN INTERRUPTION DETECTED!")
 
             with sd.InputStream(channels=1, samplerate=16000, blocksize=1024,
                                  callback=callback):
@@ -326,10 +380,10 @@ class Voice:
                     if interrupted:
                         pygame.mixer.music.stop()
                         break
-                    time.sleep(0.03)
+                    time.sleep(0.02)
 
             pygame.mixer.music.unload()
-            print(f"[barge-in: peak mic={peak_volume:.4f}, threshold={getattr(config, 'BARGE_IN_THRESHOLD', 0.02)}]")
+            print(f"[barge-in: peak mic={peak_volume:.4f}, threshold={barge_threshold}]")
         except Exception as e:
             print(f"[interruptible stream error: {e}]")
 
@@ -337,8 +391,9 @@ class Voice:
 
 
     # -------------------------------------------------------------- listen
-    def listen(self, timeout=6, phrase_time_limit=8) -> str:
-        """Mic se sunta hai aur text return karta hai. Keystrokes & transients filter karta hai."""
+    # -------------------------------------------------------------- listen
+    def _listen_raw_phrase(self, timeout=6, phrase_time_limit=10) -> str:
+        """Mic se single phrase capture karta hai aur keystroke noise filter karta hai."""
         if not self.recognizer:
             return ""
 
@@ -347,7 +402,7 @@ class Voice:
                 self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
                 self._calibrated = True
 
-            min_energy = getattr(config, "MIC_ENERGY_MIN", 40)
+            min_energy = getattr(config, "MIC_ENERGY_MIN", 80)
             max_energy = getattr(config, "MIC_ENERGY_MAX", 250)
             if self.recognizer.energy_threshold < min_energy:
                 self.recognizer.energy_threshold = min_energy
@@ -364,8 +419,18 @@ class Voice:
             except sr.WaitTimeoutError:
                 return ""
 
-        # Step 1: Far-Field AGC Pre-Amp
         raw_pcm = audio.get_raw_data()
+
+        # Step 1: Pre-STT Mechanical Keystroke Transient Filter (instant drop without STT delay)
+        try:
+            from acoustic_filter_engine import acoustic_filter
+            if acoustic_filter.is_pre_stt_keystroke(raw_pcm, sample_rate=audio.sample_rate):
+                print("[acoustic_filter] Pre-STT dropped typing keystroke transient.")
+                return ""
+        except Exception:
+            pass
+
+        # Step 2: Far-Field AGC Pre-Amp (blocked during active typing)
         try:
             from acoustic_filter_engine import acoustic_filter
             amplified_pcm = acoustic_filter.apply_far_field_agc(raw_pcm, sample_rate=audio.sample_rate)
@@ -373,7 +438,7 @@ class Voice:
         except Exception:
             amplified_pcm = raw_pcm
 
-        # Step 2: STT Recognition
+        # Step 3: STT Recognition
         mode = getattr(config, "STT_MODE", "auto")
         use_online = (mode == "google") or (mode == "auto" and has_internet())
         result_text = ""
@@ -394,7 +459,7 @@ class Voice:
         else:
             result_text = self._recognize_offline_safe(audio)
 
-        # Step 3: Keystroke & Typing Transient Filter
+        # Step 4: Post-STT Keystroke & Typing Transient Filter
         try:
             from acoustic_filter_engine import acoustic_filter
             if acoustic_filter.is_keystroke_transient(raw_pcm, sample_rate=audio.sample_rate, text=result_text):
@@ -404,6 +469,38 @@ class Voice:
             print(f"[acoustic_filter check error: {e}]")
 
         return result_text
+
+    def listen(self, timeout=7, phrase_time_limit=12, wait_for_thought=True) -> str:
+        """
+        Continuative thought-listening with semantic completeness checking.
+        
+        Solves 'sun adhura reh raha hai':
+        1. Listens to user speech.
+        2. If incomplete thought or thinking pause detected, waits 2.0-2.8s for continuation.
+        3. Stitches phrases together so user is never cut off mid-thought.
+        4. When silence occurs and user stops speaking, returns full question for reasoning.
+        """
+        initial_phrase = self._listen_raw_phrase(timeout=timeout, phrase_time_limit=phrase_time_limit)
+        if not initial_phrase:
+            return ""
+
+        accumulated = initial_phrase.strip()
+
+        # Continuative Listening Loop:
+        # Check if thought is incomplete or if user is still thinking ("2-3 sec ka wait kare")
+        while wait_for_thought:
+            incomplete = is_incomplete_thought(accumulated)
+            continuation_timeout = 2.8 if incomplete else 2.0
+
+            next_phrase = self._listen_raw_phrase(timeout=continuation_timeout, phrase_time_limit=10)
+            if next_phrase:
+                accumulated = f"{accumulated} {next_phrase.strip()}".strip()
+                print(f"[voice] Thought continued, stitched: '{accumulated}'")
+            else:
+                # Silence observed -> User finished speaking
+                break
+
+        return accumulated
 
     def _recognize_offline_safe(self, audio) -> str:
         """Safely attempts offline STT without crashing if pocketsphinx is uninstalled."""

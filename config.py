@@ -69,7 +69,7 @@ SPEECH_RATE = 175                    # offline voice ki speed
 
 # STT (sunna): "google" (online, sabse accurate) ya "offline" (Sphinx, kam accurate)
 STT_MODE = "auto"
-MIC_ENERGY_MIN = 40
+MIC_ENERGY_MIN = 80                  # Avoid picking up subtle keyboard key clicks
 MIC_ENERGY_MAX = 250                 # Capped at 250 so mic never locks deaf
 MIC_PAUSE_THRESHOLD = 0.80          # 0.80s natural speech pause threshold (no mid-sentence cut-off)
 MIC_NON_SPEAKING_DURATION = 0.35    # 0.35s non-speaking buffer
@@ -99,7 +99,10 @@ AI_ENABLED = True
 AI_PROVIDER = "gemini"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")          # .env mein set karo
 GEMINI_MODEL = "gemini-flash-lite-latest"   # gemini-flash-latest = 20/day quota; flash-lite has no such limit
-BARGE_IN_THRESHOLD = 0.0018
+BARGE_IN_ENABLED = True
+BARGE_IN_THRESHOLD = 0.0030
+BARGE_IN_GRACE_SECONDS = 0.15        # Instant reaction (150ms speaker pop shield)
+BARGE_IN_SUSTAIN_BLOCKS = 2         # ~40ms speech triggers instant speech cut-off
 AI_MAX_TOKENS = 350       # kam tokens = AI response faster aata hai
 AI_HISTORY_TURNS = 4      # sirf last 4 exchanges context mein, request chhoti rehti hai
 DEFAULT_WORKING_FOLDER = os.path.join(os.path.expanduser("~"), "Documents")
