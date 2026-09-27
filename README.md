@@ -180,6 +180,57 @@ Restart and the command works immediately. That's it.
 
 ---
 
+## Security hardening (critical fixes)
+
+Ye cheezein harden kar di gayi hain — purane behavior me real vulnerabilities the:
+
+1. **Daemon gateway token** — pehle `daemon_api_server.py` me ek hardcoded fallback token
+   (`realjarvis-daemon-secure-token`) tha, isliye bina config ke poori remote API khuli rehti thi.
+   Ab koi fallback nahi hai: `DAEMON_AUTH_TOKEN` set nahi hai toh daemon start hi nahi hota
+   (fail-fast). Generate karo:
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+   `.env` me `DAEMON_AUTH_TOKEN=<value>` daalo. Gateway ab default me `127.0.0.1` par bind hota hai
+   (public exposure ke liye `DAEMON_HOST=0.0.0.0` explicitly set karo).
+
+2. **Webhook signature verification** — pehle `/api/webhook/*` par **koi authentication nahi** thi,
+   yaani koi bhi anonymous request `daemon.execute_command()` chala sakta tha (remote command
+   execution). Ab Incoming WhatsApp webhook par Twilio ki `X-Twilio-Signature` (HMAC-SHA1)
+   verify hoti hai — `TWILIO_AUTH_TOKEN` set nahi hai toh webhook reject hota hai.
+
+3. **AST safety scanner allowlist** — pehle ye blocklist tha (sirf `rmtree`, `format`, `fork`...),
+   jisse `subprocess.run(["format","C:"])`, `os.system(...)`, `os.remove(...)`, aliased imports
+   (`import os as o`) — kuch bhi pakda nahi jaata tha. Ab **allowlist model** hai: sirf approved
+   safe modules import ho sakte hain; `subprocess`, `ctypes`, `os` (sirf `os.path`), `shutil`,
+   `socket`, `win32*`, `pickle` etc. blocked hain, aur dunder sandbox-escape / `eval` / `exec` /
+   `__import__` / file-write `open(mode="w")` bhi flagged hote hain.
+
+4. **Memory engine (offline recall)** — local fallback embeddings Python ke built-in `hash()` se
+   ban rahe the, jo per-process randomized hota hai, isliye restart ke baad offline vectors match
+   hi nahi karte the. Ab deterministic `blake2b` hashing hai, aur Gemini embedding dimension
+   (`output_dimensionality=768`) pinned hai taaki online store ki hui memory offline query se
+   compare ho sake.
+
+5. **Password hashing** — `PASSWORD_HASH` pehle unsalted SHA-256 tha (rainbow-table crackable).
+   Ab salted **PBKDF2-HMAC-SHA256 (260k iterations)** hai. Purana SHA-256 hash backward-compatible
+   verify hota rahega; naya password set karte hi migrate ho jayega:
+   ```bash
+   python config.py set-password
+   ```
+
+**Regression tests:** `tests/test_critical_fixes.py` (38 tests) in sab fixes ko lock karta hai —
+bypass attempts ab CI me fail honge.
+```bash
+venv\Scripts\python.exe -m pytest tests -v
+```
+
+> ⚠️ Agar tumne pehle kabhi `config.py` ya `.env` commit kiya tha, toh localStorage se secrets
+> rotate kar do (Gemini key, Gmail app password, ElevenLabs key) — git history permanently
+> public rehti hai.
+
+---
+
 ## Built by
 
 Piyush — IIIT Kota, 2024 batch

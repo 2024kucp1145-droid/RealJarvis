@@ -16,6 +16,7 @@ import re
 import math
 import json
 import array
+import hashlib
 import threading
 import queue
 from collections import Counter
@@ -32,6 +33,18 @@ except ImportError:
     genai = None
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "memory.db")
+
+# ---------------------------------------------------------------------------
+# EMBEDDING SPACE CONTRACT
+# ---------------------------------------------------------------------------
+# SECURITY/CORRECTNESS: Pehle Gemini embeddings ka dim explicitly set nahi tha
+# (default 3072 aa jaata tha) aur local fallback 512-D tha. Dono ko compare
+# karne par cosine_similarity() dimension mismatch dekh kar chup-chaap 0.0
+# return karta tha - yaani online store ki hui memory offline query par kabhi
+# match hi nahi hoti thi. Ab Gemini dim pinned hai aur retrieval dimension-aware.
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+GEMINI_EMBEDDING_DIM = 768
+LOCAL_FALLBACK_DIM = 512
 
 FACT_KEYWORDS = [
     "birthday", "janam din", "janm tithi", "date of birth", "dob",
@@ -199,7 +212,19 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
     return max(-1.0, min(1.0, dot / (norm_a * norm_b)))
 
 
-def _generate_local_fallback_embedding(text: str, dim: int = 512) -> List[float]:
+def _stable_hash(text: str, dim: int) -> int:
+    """Deterministic, process-independent hash bucket.
+
+    FIX: Pehle yahan Python ka built-in `hash()` use hota tha, jo per-process
+    randomized hota hai (PYTHONHASHSEED). Iska matlab tha ki save ki hui
+    offline vector restart ke baad kabhi match hi nahi karti thi - yaani
+    "offline memory" practically tooti hui thi. Ab blake2b (stable) use hota hai.
+    """
+    digest = hashlib.blake2b(text.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, "big") % dim
+
+
+def _generate_local_fallback_embedding(text: str, dim: int = LOCAL_FALLBACK_DIM) -> List[float]:
     vec = [0.0] * dim
     clean_text = text.lower().strip()
     words = re.findall(r"\w+", clean_text)
@@ -207,15 +232,15 @@ def _generate_local_fallback_embedding(text: str, dim: int = 512) -> List[float]
         return vec
 
     for i, w in enumerate(words):
-        h = hash(w) % dim
+        h = _stable_hash(w, dim)
         vec[h] += 1.2
         if i + 1 < len(words):
-            h_bi = hash(f"{w}_{words[i+1]}") % dim
+            h_bi = _stable_hash(f"{w}_{words[i+1]}", dim)
             vec[h_bi] += 0.8
 
     for i in range(len(clean_text) - 2):
         tri = clean_text[i:i+3]
-        h_tri = hash(f"tri_{tri}") % dim
+        h_tri = _stable_hash(f"tri_{tri}", dim)
         vec[h_tri] += 0.4
 
     return _l2_normalize(vec)
@@ -235,8 +260,9 @@ def generate_embedding(text: str) -> Tuple[List[float], str]:
         try:
             client = genai.Client(api_key=api_key)
             resp = client.models.embed_content(
-                model="gemini-embedding-001",
-                contents=clean_text
+                model=GEMINI_EMBEDDING_MODEL,
+                contents=clean_text,
+                config={"output_dimensionality": GEMINI_EMBEDDING_DIM},
             )
             if resp and resp.embeddings and len(resp.embeddings) > 0:
                 raw_values = resp.embeddings[0].values
@@ -244,15 +270,15 @@ def generate_embedding(text: str) -> Tuple[List[float], str]:
                 if len(_EMBEDDING_CACHE) >= _MAX_CACHE_SIZE:
                     _EMBEDDING_CACHE.pop(next(iter(_EMBEDDING_CACHE)))
                 _EMBEDDING_CACHE[clean_text] = norm_vec
-                return (norm_vec, "gemini-embedding-001")
+                return (norm_vec, GEMINI_EMBEDDING_MODEL)
         except Exception:
             pass
 
-    local_vec = _generate_local_fallback_embedding(clean_text, dim=512)
+    local_vec = _generate_local_fallback_embedding(clean_text, dim=LOCAL_FALLBACK_DIM)
     if len(_EMBEDDING_CACHE) >= _MAX_CACHE_SIZE:
         _EMBEDDING_CACHE.pop(next(iter(_EMBEDDING_CACHE)))
     _EMBEDDING_CACHE[clean_text] = local_vec
-    return (local_vec, "local-neural-hash-512")
+    return (local_vec, f"local-neural-hash-{LOCAL_FALLBACK_DIM}")
 
 
 def _background_worker_loop():
@@ -493,12 +519,20 @@ def search_vector_memory(
             vid, e_type, e_id, cat, text, blob, dim, model, meta_json, created_at = row
             doc_vec = _blob_to_vector(blob)
             
-            if len(doc_vec) != len(query_vec):
-                fallback_q_vec = _generate_local_fallback_embedding(clean_query, dim=512)
-                fallback_d_vec = _generate_local_fallback_embedding(text, dim=512)
-                vec_sim = cosine_similarity(fallback_q_vec, fallback_d_vec)
-            else:
+            if len(doc_vec) == len(query_vec):
+                # Dono ek hi embedding space me (same model + same dim)
                 vec_sim = cosine_similarity(query_vec, doc_vec)
+            elif len(doc_vec) == LOCAL_FALLBACK_DIM:
+                # Stored vector local fallback ka hai - usi deterministic
+                # generator se query embed karo (0.0 mismatch se bachne ke liye)
+                vec_sim = cosine_similarity(
+                    _generate_local_fallback_embedding(clean_query, dim=LOCAL_FALLBACK_DIM),
+                    doc_vec,
+                )
+            else:
+                # Incompatible spaces (jaise purana 3072-D Gemini doc vs 512-D
+                # local query). Cosine meaningless hai - lexical score par chhodo.
+                vec_sim = 0.0
 
             doc_tokens = _tokenize(text)
             lex_sim = _lexical_similarity(query_tokens, doc_tokens)

@@ -38,4 +38,11 @@ temp/
 scratch/
 *.pdf
 
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+pytest_out.txt
+smoke_out.txt
+
 whatsapp_bridge_config.json

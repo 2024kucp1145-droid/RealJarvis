@@ -53,3 +53,9 @@ tkinterdnd2>=0.3.0; sys_platform == 'win32'       # Windows Tkinter DND bindings
 # 5. Linux-Only Libraries (Silently SKIPPED on Windows via PEP-508 Markers)
 # ------------------------------------------------------------------------------
 python-xlib>=0.33; sys_platform == 'linux'        # Linux X11 display interface
+
+# ------------------------------------------------------------------------------
+# 6. Development / Testing
+# ------------------------------------------------------------------------------
+pytest>=8.0.0                                     # tests/ security regression suite
+

@@ -22,6 +22,8 @@ import os
 import sys
 import json
 import time
+import hmac
+import hashlib
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
@@ -39,9 +41,38 @@ except ImportError:
 from jarvis_daemon import daemon
 import remote_boot_wol
 
-# Load Authentication Token from environment or generate a stable default
-AUTH_TOKEN = os.environ.get("DAEMON_AUTH_TOKEN", "realjarvis-daemon-secure-token")
+def _load_auth_token() -> str:
+    """Gateway token load karo (.env ya environment se).
+
+    SECURITY: Pehle yahan ek hardcoded fallback token tha
+    ("realjarvis-daemon-secure-token") - usse poora internet-facing daemon
+    publicly open ho jaata tha. Ab fallback HATA diya gaya hai: token nahi
+    mila toh server start hi nahi hoga.
+    """
+    token = (os.environ.get("DAEMON_AUTH_TOKEN") or "").strip()
+    if token:
+        return token
+    if config is not None:
+        token = (getattr(config, "DAEMON_AUTH_TOKEN", "") or "").strip()
+    return token
+
+
+def _load_twilio_auth_token() -> str:
+    """Twilio Auth Token for WhatsApp webhook signature verification."""
+    token = (os.environ.get("TWILIO_AUTH_TOKEN") or "").strip()
+    if token:
+        return token
+    if config is not None:
+        token = (getattr(config, "TWILIO_AUTH_TOKEN", "") or "").strip()
+    return token
+
+
+AUTH_TOKEN = _load_auth_token()
+TWILIO_AUTH_TOKEN = _load_twilio_auth_token()
 DEFAULT_PORT = int(os.environ.get("PORT", os.environ.get("DAEMON_PORT", 8765)))
+# Localhost by default - sirf is machine se reachable. Public exposure ke liye
+# explicitly DAEMON_HOST=0.0.0.0 set karo.
+DEFAULT_HOST = os.environ.get("DAEMON_HOST", "127.0.0.1")
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -77,23 +108,98 @@ class DaemonAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response_bytes)
 
-    def _is_authenticated(self, query_params: Dict[str, list]) -> bool:
-        """Validates Bearer token in header or query string."""
+    def _bearer_token_valid(self) -> bool:
+        """Header ya query string me diya gaya token constant-time compare karo."""
+        if not AUTH_TOKEN:
+            return False
+
         auth_header = self.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-            if token == AUTH_TOKEN:
+            if hmac.compare_digest(auth_header[7:].strip(), AUTH_TOKEN):
                 return True
 
+        parsed = urllib.parse.urlparse(self.path)
+        query_params = urllib.parse.parse_qs(parsed.query)
         if "token" in query_params and query_params["token"]:
-            if query_params["token"][0] == AUTH_TOKEN:
+            if hmac.compare_digest(query_params["token"][0], AUTH_TOKEN):
                 return True
-
-        # If incoming from Twilio webhook, allow validation or check configured signature
-        if self.path.startswith("/api/webhook/"):
-            return True
 
         return False
+
+    def _twilio_signature_valid(self) -> bool:
+        """Twilio webhook signature (X-Twilio-Signature) verify karo.
+
+        SECURITY: Pehle saare /api/webhook/* paths bina kisi check ke allow ho
+        rahe the - matlab koi bhi anonymous request daemon.execute_command()
+        chala sakta tha (remote command execution). Ab Twilio ki documented
+        HMAC-SHA1 signature verification lagti hai.
+        """
+        if not TWILIO_AUTH_TOKEN:
+            # Twilio configure nahi hai - webhook ko bearer token chahiye.
+            return False
+
+        signature = self.headers.get("X-Twilio-Signature", "")
+        if not signature:
+            return False
+
+        # Twilio signature URL + sorted POST params ka HMAC-SHA1 hota hai.
+        content_length = int(self.headers.get("Content-Length", 0) or 0)
+        raw_body = self.read_cached_body(content_length)
+        params = urllib.parse.parse_qs(raw_body.decode("utf-8", errors="ignore"))
+
+        request_url = self._reconstruct_url()
+        payload = request_url
+        for key in sorted(params.keys()):
+            for value in params[key]:
+                payload += key + value
+
+        expected = hmac.new(
+            TWILIO_AUTH_TOKEN.encode("utf-8"),
+            payload.encode("utf-8"),
+            hashlib.sha1,
+        ).digest()
+
+        try:
+            provided = bytes.fromhex(signature.strip())
+        except ValueError:
+            return False
+
+        return hmac.compare_digest(expected, provided)
+
+    def read_cached_body(self, content_length: int) -> bytes:
+        """Raw POST body ko sirf ek baar padho aur cache karo."""
+        cached = getattr(self, "_raw_body_cache", None)
+        if cached is None:
+            cached = self.rfile.read(content_length) if content_length else b""
+            self._raw_body_cache = cached
+        return cached
+
+    def _reconstruct_url(self) -> str:
+        """Webhook verify karne ke liye original public URL banao."""
+        forwarded_proto = self.headers.get("X-Forwarded-Proto", "")
+        scheme = forwarded_proto.split(",")[0].strip() if forwarded_proto else "http"
+
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host", "")
+
+        return f"{scheme}://{host}{self.path}"
+
+    def _is_authenticated(self) -> bool:
+        """Bearer token ya (webhook ke case me) valid Twilio signature chahiye."""
+        path = urllib.parse.urlparse(self.path).path
+        if self._bearer_token_valid():
+            return True
+        if path.startswith("/api/webhook/") and self._twilio_signature_valid():
+            return True
+        return False
+
+    def _reject_unauthorized(self, is_webhook: bool = False):
+        if is_webhook:
+            self._send_json(403, {
+                "error": "Webhook signature verification failed. Set TWILIO_AUTH_TOKEN "
+                         "or authenticate with a Bearer token."
+            })
+        else:
+            self._send_json(401, {"error": "Unauthorized. Provide valid Bearer token."})
 
     def do_OPTIONS(self):
         """CORS pre-flight support."""
@@ -108,7 +214,12 @@ class DaemonAPIHandler(BaseHTTPRequestHandler):
         path = parsed.path
         query_params = urllib.parse.parse_qs(parsed.query)
 
-        # 1. Root Health Check (Public)
+        # Authentication Check for all API endpoints (root bhi ab protected hai)
+        if not self._is_authenticated():
+            self._reject_unauthorized(is_webhook=path.startswith("/api/webhook/"))
+            return
+
+        # 1. Root Health Check / Service Info
         if path == "/":
             self._send_json(200, {
                 "service": "RealJarvis 24/7 Always-On Daemon",
@@ -116,6 +227,7 @@ class DaemonAPIHandler(BaseHTTPRequestHandler):
                 "version": "1.0",
                 "uptime": daemon.get_telemetry()["uptime_str"],
                 "endpoints": [
+                    "GET  /",
                     "GET  /api/status",
                     "POST /api/message",
                     "POST /api/task/schedule",
@@ -125,11 +237,6 @@ class DaemonAPIHandler(BaseHTTPRequestHandler):
                     "POST /api/control/power"
                 ]
             })
-            return
-
-        # Authentication Check for all API endpoints
-        if not self._is_authenticated(query_params):
-            self._send_json(401, {"error": "Unauthorized. Provide valid Bearer token."})
             return
 
         # 2. Telemetry Status
@@ -149,13 +256,18 @@ class DaemonAPIHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        query_params = urllib.parse.parse_qs(parsed.query)
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(content_length)
+        content_length = int(self.headers.get("Content-Length", 0) or 0)
+        raw_body = self.read_cached_body(content_length)
 
         # 1. WhatsApp / Twilio Webhook (Supports form-urlencoded and JSON)
         if path == "/api/webhook/whatsapp":
+            # SECURITY: Twilio signature (ya bearer token) ke bina koi bhi
+            # anonymous request daemon command chala sakta tha. Ab blocked.
+            if not self._is_authenticated():
+                self._reject_unauthorized(is_webhook=True)
+                return
+
             incoming_text = ""
             sender = ""
 
@@ -194,8 +306,8 @@ class DaemonAPIHandler(BaseHTTPRequestHandler):
             return
 
         # Authentication Check for all other POST endpoints
-        if not self._is_authenticated(query_params):
-            self._send_json(401, {"error": "Unauthorized. Provide valid Bearer token."})
+        if not self._is_authenticated():
+            self._reject_unauthorized()
             return
 
         # Parse JSON payload
@@ -259,8 +371,21 @@ class DaemonAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": "Endpoint not found"})
 
 
-def run_api_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT):
+def run_api_server(host: str = None, port: int = DEFAULT_PORT):
     """Runs the API Gateway server."""
+    if host is None:
+        host = DEFAULT_HOST
+
+    # SECURITY: Bina token ke server start karne ka matlab hai poora laptop
+    # internet par khula. Isliye fail-fast.
+    if not AUTH_TOKEN:
+        print("=" * 60)
+        print("  [FATAL] DAEMON_AUTH_TOKEN set nahi hai - server start nahi ho sakta.")
+        print("  .env me daalo: DAEMON_AUTH_TOKEN=<long-random-secret>")
+        print("  Generate: python -c \"import secrets; print(secrets.token_urlsafe(48))\"")
+        print("=" * 60)
+        raise SystemExit(1)
+
     # Ensure daemon background worker is running
     daemon.start()
 
@@ -268,7 +393,10 @@ def run_api_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT):
     httpd = ThreadedHTTPServer(server_address, DaemonAPIHandler)
     print("=" * 60)
     print(f"  RealJarvis 24/7 Remote Gateway listening on http://{host}:{port}")
-    print(f"  Auth Token: {AUTH_TOKEN}")
+    print(f"  Auth Token: {AUTH_TOKEN[:4]}...{AUTH_TOKEN[-4:]} (masked)")
+    print(f"  Twilio signature verification: {'ON' if TWILIO_AUTH_TOKEN else 'OFF (bearer token only)'}")
+    if host in ("0.0.0.0", "::"):
+        print("  [WARN] 0.0.0.0 par bind hai - har incoming connection ko token chahiye.")
     print("=" * 60)
 
     try:

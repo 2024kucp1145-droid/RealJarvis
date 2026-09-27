@@ -10,7 +10,9 @@ SECRETS (.env file mein rakhiye, config.py mein KABHI MAT LIKHIYE):
 """
 
 import hashlib
+import hmac
 import os
+import secrets
 
 # --- .env file se secrets load karo (agar python-dotenv installed nahi hai toh manual parse) ---
 def _load_env():
@@ -59,11 +61,12 @@ PICOVOICE_ACCESS_KEY = ""          # Optional: Picovoice free key for 0.01s inst
 
 # ---------------- VOICE & TTS ----------------
 # TTS ENGINE & PROVIDERS:
-#   "auto"       -> ElevenLabs (agar key set ho), warna high-speed Microsoft Neural (Madhur / NeerjaExpressive / Christopher)
-#   "elevenlabs" -> ElevenLabs Ultra-Realistic AI Voice (10k chars free/month per account on elevenlabs.io)
-#   "edge"       -> 100% Free Unlimited Neural Voice (Deep human clarity, zero cost)
-#   "offline"    -> SAPI5 / espeak offline fallback
-TTS_MODE = os.environ.get("TTS_MODE", "auto")
+#   "edge"       -> Microsoft Neural, FREE + UNLIMITED (same sweet female Jarvis tone)
+#   "auto"       -> ElevenLabs pehle, quota/error par turant Edge (silent nahi)
+#   "elevenlabs" -> ElevenLabs try, fail par Edge
+#   "offline"    -> SAPI5 / espeak (internet nahi)
+# Default edge: 11labs free quota (~10k chars/month) khatam hote hi awaaz band na ho.
+TTS_MODE = os.environ.get("TTS_MODE", "edge")
 
 # ElevenLabs Ultra-Realistic Setup (.env mein set karein):
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
@@ -75,24 +78,30 @@ ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "cgSgspJ2msm6clMCkdW9")
 ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"   # Hindi, Hinglish & English natural synthesis
 
-# 100% Free Unlimited Neural Voices:
-#   "en-IN-NeerjaExpressiveNeural" -> Indian English / Hinglish Expressive Female (Rich emotion & sweet tone) ← DEFAULT
+# 100% Free Unlimited Neural Voices (Microsoft Edge TTS):
+#   "en-IN-NeerjaExpressiveNeural" -> Jessica-like sweet Hinglish female (DEFAULT, unlimited)
 #   "hi-IN-SwaraNeural"            -> Hindi Female
 #   "hi-IN-MadhurNeural"           -> Hindi Male
 #   "en-US-ChristopherNeural"      -> Classic Iron Man JARVIS
 ONLINE_VOICE = os.environ.get("ONLINE_VOICE", "en-IN-NeerjaExpressiveNeural")
+# Agar primary voice fail ho (edge endpoint glitch), ye order se try hogi
+EDGE_VOICE_FALLBACKS = [
+    "en-IN-NeerjaExpressiveNeural",
+    "en-IN-NeerjaNeural",
+    "hi-IN-SwaraNeural",
+]
 SPEECH_RATE = 160                    # offline voice ki speed
 # TTS Speed Offset: edge-tts prosody ke liye global rate adjust (e.g. "-10%" = 10% slow down = meethi madhur tempo)
 TTS_RATE_OFFSET = os.environ.get("TTS_RATE_OFFSET", "-12%")  # ← default -12% slow = zyada meethi awaaz
 
 # STT (sunna): "google" (online, sabse accurate) ya "offline" (Sphinx, kam accurate)
 STT_MODE = "auto"
-MIC_ENERGY_MIN = 45                  # Ultra-sensitive: picks up quiet speech across room (3-5m)
-MIC_ENERGY_MAX = 180                 # Capped at 180 so mic never locks deaf
-MIC_PAUSE_THRESHOLD = 0.45          # Snappy 0.45s speech pause threshold (instant turnaround!)
-MIC_NON_SPEAKING_DURATION = 0.20    # Fast 0.20s non-speaking buffer
+MIC_ENERGY_MIN = 100                 # Raised: ignores fan/AC background hum, only real speech triggers
+MIC_ENERGY_MAX = 300                 # Tighter max: prevents mic from going deaf in loud rooms
+MIC_PAUSE_THRESHOLD = 0.80          # 0.80s pause = natural breath gap, won't cut mid-sentence
+MIC_NON_SPEAKING_DURATION = 0.30    # 0.30s non-speaking buffer (natural speech gaps)
 MIC_DYNAMIC_ENERGY = True           # Continuously adapt to ambient room noise
-FAR_FIELD_GAIN_MULTIPLIER = 3.5     # 3.5x far-field acoustic boost across room
+FAR_FIELD_GAIN_MULTIPLIER = 2.0     # Reduced: 2x boost is enough, 3.5x was amplifying background noise too
 # In languages me try karega recognition (order matter karta hai - pehle wali
 # pehle try hoti hai). "en-IN" Hinglish/English dono kaafi achhe se pakà¤¡à¤¼ leta
 # hai. Chaho toh aur languages add kar sakte ho, e.g. "ta-IN" (Tamil), "te-IN" (Telugu).
@@ -125,14 +134,52 @@ BARGE_IN_SUSTAIN_BLOCKS = 4        # ~80ms of sustained voice needed (prevents f
 AI_MAX_TOKENS = 350       # kam tokens = AI response faster aata hai
 AI_HISTORY_TURNS = 4      # sirf last 4 exchanges context mein, request chhoti rehti hai
 DEFAULT_WORKING_FOLDER = os.path.join(os.path.expanduser("~"), "Documents")
+PBKDF2_ITERATIONS = 260000
+
+
 def hash_password(plain_text: str) -> str:
-    return hashlib.sha256(plain_text.encode("utf-8")).hexdigest()
+    """PBKDF2-HMAC-SHA256 + random per-password salt.
+
+    SECURITY: Pehle ye unsalted SHA-256 tha (hashlib.sha256(pw).hexdigest()).
+    Unsalted hash rainbow tables se seconds me crack ho jaate hain, aur ye
+    hash repo me plaintext commit ho jaata tha. Ab salted PBKDF2 (260k
+    iterations) use hota hai, format: pbkdf2_sha256$<iter>$<salt>$<hash>
+    """
+    salt = secrets.token_hex(16)
+    derived = hashlib.pbkdf2_hmac(
+        "sha256",
+        plain_text.encode("utf-8"),
+        bytes.fromhex(salt),
+        PBKDF2_ITERATIONS,
+    )
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt}${derived.hex()}"
 
 
 def verify_password(plain_text: str) -> bool:
-    if not PASSWORD_HASH:
+    if not PASSWORD_HASH or not plain_text:
         return False
-    return hash_password(plain_text) == PASSWORD_HASH
+
+    stored = PASSWORD_HASH.strip()
+
+    # New PBKDF2 format
+    if stored.startswith("pbkdf2_sha256$"):
+        try:
+            _, iter_str, salt_hex, hash_hex = stored.split("$")
+            derived = hashlib.pbkdf2_hmac(
+                "sha256",
+                plain_text.encode("utf-8"),
+                bytes.fromhex(salt_hex),
+                int(iter_str),
+            )
+        except (ValueError, TypeError):
+            return False
+        return hmac.compare_digest(derived.hex(), hash_hex)
+
+    # Legacy unsalted SHA-256 (purana format) - backward compatible login.
+    # Naya password set karte hi PBKDF2 format me migrate ho jayega:
+    #   python config.py set-password
+    legacy = hashlib.sha256(plain_text.encode("utf-8")).hexdigest()
+    return hmac.compare_digest(legacy, stored)
 
 
 if __name__ == "__main__":
@@ -150,6 +197,19 @@ WHATSAPP_ENABLED = True
 WHATSAPP_AUTO_START = True  # Auto-open WhatsApp Web on launch
 WHATSAPP_CONTACTS_FILE = "data/whatsapp_contacts.json"  # Save contacts
 WHATSAPP_SESSION_DIR = "data/whatsapp_session"  # Persist session
+
+# ============================================================
+# 24/7 DAEMON GATEWAY (remote REST API)
+# ============================================================
+# SECURITY: DAEMON_AUTH_TOKEN ka koi hardcoded fallback nahi hai.
+# Blank chhoda toh daemon start hi nahi hoga (fail-fast).
+DAEMON_AUTH_TOKEN = os.environ.get("DAEMON_AUTH_TOKEN", "")
+DAEMON_HOST = os.environ.get("DAEMON_HOST", "127.0.0.1")
+DAEMON_PORT = int(os.environ.get("DAEMON_PORT", "8765"))
+
+# Twilio Auth Token - iske bina WhatsApp webhook signature verify nahi hoti,
+# aur bina verify webhook requests reject ho jaati hain.
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
 
 
 
