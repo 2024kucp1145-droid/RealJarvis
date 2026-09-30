@@ -196,6 +196,13 @@ class WakeEngine:
                 if self._paused:
                     time.sleep(0.1)
                     continue
+                try:
+                    from voice import IS_SPEAKING, is_in_deaf_window
+                    if IS_SPEAKING or is_in_deaf_window():
+                        time.sleep(0.1)
+                        continue
+                except Exception:
+                    pass
 
                 pcm = audio_stream.read(porcupine.frame_length, exception_on_overflow=False)
                 pcm = struct.unpack_from("h" * porcupine.frame_length, pcm)
@@ -221,12 +228,27 @@ class WakeEngine:
         recognizer.pause_threshold = 0.3
         recognizer.non_speaking_duration = 0.1
 
-        mic = sr.Microphone()
+        try:
+            from voice import Voice as _Voice
+            mic_index = _Voice._detect_best_microphone()
+        except Exception:
+            mic_index = None
+        try:
+            mic = sr.Microphone(device_index=mic_index) if mic_index is not None else sr.Microphone()
+        except Exception:
+            mic = sr.Microphone()
 
         while self._running:
             if self._paused:
                 time.sleep(0.15)
                 continue
+            try:
+                from voice import IS_SPEAKING, is_in_deaf_window
+                if IS_SPEAKING or is_in_deaf_window():
+                    time.sleep(0.15)
+                    continue
+            except Exception:
+                pass
 
             try:
                 with mic as source:
@@ -251,12 +273,27 @@ class WakeEngine:
         recognizer = sr.Recognizer()
         recognizer.energy_threshold = 150
         recognizer.dynamic_energy_threshold = False
-        mic = sr.Microphone()
+        try:
+            from voice import Voice as _Voice
+            mic_index = _Voice._detect_best_microphone()
+        except Exception:
+            mic_index = None
+        try:
+            mic = sr.Microphone(device_index=mic_index) if mic_index is not None else sr.Microphone()
+        except Exception:
+            mic = sr.Microphone()
 
         while self._running:
             if self._paused:
                 time.sleep(0.2)
                 continue
+            try:
+                from voice import IS_SPEAKING, is_in_deaf_window
+                if IS_SPEAKING or is_in_deaf_window():
+                    time.sleep(0.2)
+                    continue
+            except Exception:
+                pass
             try:
                 with mic as source:
                     audio = recognizer.listen(source, timeout=2.0, phrase_time_limit=2.0)

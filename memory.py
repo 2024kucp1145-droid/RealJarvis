@@ -27,10 +27,58 @@ try:
 except ImportError:
     config = None
 
+# ── LAZY SDK IMPORT ──────────────────────────────────────────────────────
+# `google.genai` ka import module load par ~17 SECONDS leta tha. Wo sirf tab
+# chahiye jab koi embedding/semantic call ho — pehli baar use hone par import.
+# NOTE: PEP 562 module-__getattr__ yahan kaam nahi karta (function ke andar
+# global lookup NameError deta hai), isliye lazy proxy object use kiya hai.
+# Proxy class ai_brain.py me bhi hai — wahan se import kar lete hain.
 try:
-    from google import genai
-except ImportError:
-    genai = None
+    from ai_brain import _LazySDK as _LazySDKCls
+except Exception:
+    import importlib as _il
+
+    class _LazySDKCls:
+        __slots__ = ("_path", "_attr", "_mod", "_failed")
+
+        def __init__(self, path, attr=None):
+            object.__setattr__(self, "_path", path)
+            object.__setattr__(self, "_attr", attr)
+            object.__setattr__(self, "_mod", None)
+            object.__setattr__(self, "_failed", False)
+
+        def _load(self):
+            mod = object.__getattribute__(self, "_mod")
+            if mod is not None:
+                return mod
+            if object.__getattribute__(self, "_failed"):
+                return None
+            try:
+                mod = _il.import_module(object.__getattribute__(self, "_path"))
+                attr = object.__getattribute__(self, "_attr")
+                if attr:
+                    for part in attr.split("."):
+                        mod = getattr(mod, part)
+            except Exception:
+                object.__setattr__(self, "_failed", True)
+                return None
+            object.__setattr__(self, "_mod", mod)
+            return mod
+
+        def __getattr__(self, name):
+            mod = self._load()
+            if mod is None:
+                raise ImportError("SDK import failed")
+            return getattr(mod, name)
+
+        def __bool__(self):
+            return self._load() is not None
+
+        def __repr__(self):
+            return f"<LazySDK {object.__getattribute__(self, '_path')}>"
+
+
+genai = _LazySDKCls("google.genai")
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "memory.db")
 

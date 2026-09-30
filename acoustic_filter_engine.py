@@ -53,6 +53,10 @@ class AcousticFilterEngine:
         self.paralinguistic_detection_enabled = True
         self.gain_multiplier = 2.4
         self.ambient_noise_floor = 120.0
+        # Is RMS se NEECHE ka audio = sirf kamre ka shor (room tone), koi
+        # bolne wali awaaz nahi. Ise amplify nahi karna, warna mic kabhi
+        # silence me nahi jaata aur end-of-speech detect hi nahi hota.
+        self.speech_presence_floor = 150.0
         self._last_event_time = 0.0
         self._suppressed_keystrokes_count = 0
         self._paralinguistic_events_count = 0
@@ -126,59 +130,87 @@ class AcousticFilterEngine:
         }
 
     def is_pre_stt_keystroke(self, pcm_bytes: bytes, sample_rate: int = 16000) -> bool:
-        """Fast pre-recognition filter: Rejects mechanical keyboard transients before STT."""
+        """
+        Advisory pre-recognition check: "yeh mechanical click lag raha hai".
+
+        CAPTURE-FIRST NOTE (2026-09-27): iska return value abhi bhi ek
+        *diagnosis* hai, delete nahi. voice.py ise sirf log karta hai jab tak
+        config.KEYSTROKE_DROP_ALLOWED explicitly True na ho.
+
+        Purana bug: condition me `rms < 350` OR se lagaya gaya tha, jisse
+        door se aayi hui dheemi REAL awaaz bhi "keystroke" classify ho jati thi
+        aur pura utterance drop ho raha tha. Ab saare signals AND hain.
+        """
         if not self.keystroke_suppression_enabled or not pcm_bytes:
             return False
         idle_time = self.get_time_since_last_user_input()
         if idle_time < 1.25:  # User typed within last 1.25s
             feats = self.extract_features(pcm_bytes, sample_rate)
-            # Mechanical key clicks have sharp crest factors and short duration
-            if feats["crest"] >= 2.8 and (feats["duration"] <= 0.70 or feats["rms"] < 350):
+            duration = feats["duration"]
+            # Real speech ka minimum practical duration ~0.12s hota hai.
+            # Isse chhota + sharp crest + decent energy = mechanical click.
+            if (duration <= 0.12
+                    and feats["crest"] >= 3.5
+                    and feats["rms"] >= 120):
                 self._suppressed_keystrokes_count += 1
                 return True
         return False
 
     def is_keystroke_transient(self, pcm_bytes: bytes, sample_rate: int = 16000, text: str = "") -> bool:
-        """Determines whether the captured audio is a keyboard click or mechanical transient."""
+        """
+        Advisory verdict: captured audio mechanical click hai ya real speech.
+
+        Ye sirf TABHI True ho sakta hai jab audio itni chhoti ho ki insaan
+        bol hi nahi sakta (duration <= 0.10s). Isse guarantee milti hai ki
+        koi bhi real utterance — chahe 1 word ho ("jar") — survive karegi.
+        """
         if not self.keystroke_suppression_enabled:
             return False
 
         feats = self.extract_features(pcm_bytes, sample_rate)
+        duration = feats["duration"]
+        crest = feats["crest"]
+
+        # ── HARD ACOUSTIC FLOOR ──────────────────────────────────────────
+        # 100ms se lambi koi bhi cheez speech maani jaati hai. Click detector
+        # yahan se aage evaluate hi nahi hota — ye capture-first ka sabse
+        # bada protection hai.
+        if duration > 0.10:
+            return False
+
         idle_time = self.get_time_since_last_user_input()
         is_typing = idle_time < 1.25
 
-        clean_text = text.strip().lower()
-        noise_syllables = {
-            "k", "t", "c", "d", "p", "f", "s", "sh", "ch", "th", "g", "b", "m", "n",
-            "the", "uh", "um", "ah", "click", "tap", "space", "enter", "key", "typing",
-            "a", "i", "o", "u", "e", "tu", "ko", "ki", "ka", "se", "pe", ".", "hi", "ha",
-            "ok", "haan", "to", "you", "so", "and", "aur", "in", "it", "is"
-        }
-        
+        clean_text = (text or "").strip().lower()
         words = clean_text.split()
-        if is_typing:
-            # During active typing, reject phantom 1-3 word transcriptions or noise syllables
-            if clean_text in noise_syllables or len(words) <= 3 or len(clean_text) <= 5:
-                self._suppressed_keystrokes_count += 1
-                return True
-            if feats["crest"] >= 2.8 and feats["duration"] <= 0.70:
-                self._suppressed_keystrokes_count += 1
-                return True
 
-        if feats["duration"] <= 0.12 and feats["crest"] >= 3.5:
+        # Bilkul khali/nonsense transcription + typing + sharp transient.
+        # 100ms ke audio me 3 se zyada words physically impossible hain —
+        # 2-3 word "typing click" jaisa transcription hamesha phantom hota hai.
+        if is_typing and crest >= 4.0 and len(words) <= 3:
+            self._suppressed_keystrokes_count += 1
+            return True
+
+        # Ultra-sharp click, chahe typing na bhi ho
+        if crest >= 5.5:
             self._suppressed_keystrokes_count += 1
             return True
 
         return False
 
     def apply_far_field_agc(self, pcm_bytes: bytes, sample_rate: int = 16000) -> bytes:
-        """Dynamically boosts far-field quiet vocal signals (2.0x - 3.2x) with a smooth soft limiter."""
+        """
+        Dynamically boosts far-field quiet vocal signals across the room (3-5m).
+
+        CAPTURE-FIRST CHANGE: pehle typing ke dauraan amplification BLOCK ho
+        jati thi, jisse agar user type karta-bhi hua to door se aayi hui uski
+        awaaz bilkul sunayi nahi deti thi. Ab typing ke dauraan bhi gain lagti
+        hai — bas thoda dheere, taaki keystroke spike na karein.
+        """
         if not self.far_field_agc_enabled or not pcm_bytes:
             return pcm_bytes
 
-        # Never amplify keyboard clicks during active typing
-        if self.is_user_actively_typing(threshold_seconds=1.25):
-            return pcm_bytes
+        typing = self.is_user_actively_typing(threshold_seconds=1.25)
 
         num_samples = len(pcm_bytes) // 2
         if num_samples == 0:
@@ -188,16 +220,34 @@ class AcousticFilterEngine:
         sum_sq = sum(s * s for s in samples)
         rms = math.sqrt(sum_sq / float(num_samples)) if num_samples > 0 else 0.0
 
-        if rms < 300:
-            gain = 4.2      # 4.2x boost for quiet / distant vocal signals across room (3-5m)
+        if typing:
+            # Typing ke dauraan: click spike amplify mat karo (warna feedback
+            # loop banta hai), lekin REAL speech amplify karo — kyunki user
+            # type karte hue bhi bol sakta hai aur use sunna zaroori hai.
+            feats = self.extract_features(pcm_bytes, sample_rate)
+            if feats["duration"] <= 0.12 and feats["crest"] >= 3.5:
+                return pcm_bytes          # mechanical click — untouched
+            gain = 1.8                     # real speech: halka but genuine boost
+        elif rms < self.speech_presence_floor:
+            # ── NOISE FLOOR GUARD ──────────────────────────────────────
+            # Ye sirf room-tone hai, isme koi bolne wali awaaz nahi hai.
+            # Ise amplify karne se background aur badhta hai aur mic kabhi
+            # "silent" hi nahi hota — jisse SpeechRecognition apna
+            # pause_threshold kabhi satisfy nahi kar paata.
+            return pcm_bytes
+        elif rms < 300:
+            gain = 4.2      # 4.2x for quiet / distant vocal signals across room (3-5m)
         elif rms < 800:
-            gain = 3.0      # 3.0x boost
+            gain = 3.0
         elif rms < 1500:
-            gain = 2.0      # 2.0x boost
+            gain = 2.0
         elif rms < 2500:
             gain = 1.4
         else:
             gain = 1.0
+
+        if gain <= 1.0:
+            return pcm_bytes
 
         amplified = []
         max_limit = 32760

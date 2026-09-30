@@ -15,17 +15,68 @@ Do providers support karte hain (config.AI_PROVIDER se choose karo):
 import re
 import config
 
-try:
-    import anthropic
-except ImportError:
-    anthropic = None
+# ── LAZY SDK IMPORTS ─────────────────────────────────────────────────────
+# Pehle ye dono module load par import hote the. `anthropic` (~11.5s) aur
+# `google.genai` (~17.3s) — matlab startup me sirf 29 SECONDS inhe import karne
+# me jaate the, jabki inhe sirf tab chahiye jab koi actual API call ho.
+# Ab pehli baar use hone par import hote hain — startup ~6s tez.
+#
+# NOTE: PEP 562 module-__getattr__ KAAM NAHI KARTA yahan. Wo sirf
+# `module.attr` access pe chalta hai; function ke andar `genai_types` ka
+# global lookup seedha module __dict__ me jaata hai aur NameError deta hai.
+# Isliye ek lazy PROXY object use kar rahe hain jo attribute access par
+# apne aap asli module import kar deta hai.
+import importlib as _importlib
 
-try:
-    from google import genai
-    from google.genai import types as genai_types
-except ImportError:
-    genai = None
-    genai_types = None
+
+class _LazySDK:
+    """Proxy jo pehli attribute access par asal module import karta hai."""
+
+    __slots__ = ("_path", "_attr", "_mod", "_failed")
+
+    def __init__(self, path, attr=None):
+        object.__setattr__(self, "_path", path)
+        object.__setattr__(self, "_attr", attr)
+        object.__setattr__(self, "_mod", None)
+        object.__setattr__(self, "_failed", False)
+
+    def _load(self):
+        mod = object.__getattribute__(self, "_mod")
+        if mod is not None:
+            return mod
+        if object.__getattribute__(self, "_failed"):
+            return None
+        try:
+            mod = _importlib.import_module(object.__getattribute__(self, "_path"))
+            attr = object.__getattribute__(self, "_attr")
+            if attr:
+                for part in attr.split("."):
+                    mod = getattr(mod, part)
+        except Exception:
+            object.__setattr__(self, "_failed", True)
+            return None
+        object.__setattr__(self, "_mod", mod)
+        return mod
+
+    def __getattr__(self, name):
+        mod = self._load()
+        if mod is None:
+            raise ImportError(
+                f"{object.__getattribute__(self, '_path')} could not be imported"
+            )
+        return getattr(mod, name)
+
+    def __bool__(self):
+        return self._load() is not None
+
+    def __repr__(self):
+        return f"<LazySDK {object.__getattribute__(self, '_path')}>"
+
+
+genai = _LazySDK("google.genai")
+genai_types = _LazySDK("google.genai", "types")
+anthropic = _LazySDK("anthropic")
+
 
 
 VALID_EMOTIONS = {"happy", "excited", "sad", "concerned", "calm", "serious"}

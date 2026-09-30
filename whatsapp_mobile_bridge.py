@@ -380,8 +380,12 @@ class WhatsAppMobileBridge:
         out_path = os.path.join(CAPTURES_DIR, f"voice_{ts}.mp3")
 
         async def _synth():
-            comm = edge_tts.Communicate(text, "hi-IN-SwaraNeural")
+            from voice import _tts_volume_str
+            comm = edge_tts.Communicate(
+                text, "hi-IN-SwaraNeural", volume=_tts_volume_str()
+            )
             await comm.save(out_path)
+
 
         try:
             asyncio.run(_synth())

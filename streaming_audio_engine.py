@@ -66,6 +66,7 @@ class StreamingAudioEngine:
         if pygame and not pygame.mixer.get_init():
             try:
                 pygame.mixer.init()
+                _apply_mixer_gain()
             except Exception as e:
                 print(f"[streaming_audio_engine] Pygame init error: {e}")
 
@@ -75,10 +76,7 @@ class StreamingAudioEngine:
         Returns True if interrupted by barge-in, False if completed normally.
         """
         if not edge_tts or not pygame:
-            # Fallback to standard voice if edge_tts or pygame missing
-            import voice
-            v = voice.Voice()
-            return v.speak(text, emotion=emotion)
+            raise RuntimeError("edge-tts or pygame missing")
 
         self._stop_event.clear()
         self._is_speaking = True
@@ -117,12 +115,15 @@ class StreamingAudioEngine:
         )
         synth_thread.start()
 
-        # Consumer: Play audio as soon as chunks arrive in RAM with sub-50ms Barge-In
+        # Consumer: Play audio as soon as chunks arrive in RAM
         interrupted = False
+        played_any = False
         start_time = time.time()
         consecutive_loud = 0
-        barge_threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.0030)
-        grace_period = 0.15  # Instant reaction (150ms speaker transient shield)
+        barge_enabled = getattr(config, "BARGE_IN_ENABLED", False)
+        barge_threshold = getattr(config, "BARGE_IN_THRESHOLD", 0.035)
+        grace_period = getattr(config, "BARGE_IN_GRACE_SECONDS", 0.40)
+        sustain_blocks = getattr(config, "BARGE_IN_SUSTAIN_BLOCKS", 4)
 
         def mic_callback(indata, frames, time_info, status):
             nonlocal interrupted, consecutive_loud
@@ -135,13 +136,13 @@ class StreamingAudioEngine:
                 consecutive_loud += 1
             else:
                 consecutive_loud = 0
-            if consecutive_loud >= 2:  # ~40ms speech
+            if consecutive_loud >= sustain_blocks:
                 interrupted = True
                 print("[streaming_audio_engine] INSTANT BARGE-IN INTERRUPTION TRIGGERED!")
                 self.stop_immediately()
 
         mic_stream = None
-        if interruptible and sd and np:
+        if interruptible and barge_enabled and sd and np:
             try:
                 mic_stream = sd.InputStream(channels=1, samplerate=16000, blocksize=1024, callback=mic_callback)
                 mic_stream.start()
@@ -151,14 +152,26 @@ class StreamingAudioEngine:
         try:
             while not self._stop_event.is_set():
                 try:
-                    buf = audio_buffer_queue.get(timeout=4.0)
+                    buf = audio_buffer_queue.get(timeout=15.0)
                     if buf is None:  # End of stream sentinel
                         break
 
                     # Play chunk from RAM
                     buf.seek(0)
+                    if getattr(buf, "getbuffer", None) and buf.getbuffer().nbytes < 32:
+                        continue
+                    # Real output gain. edge-tts ka `volume` param Microsoft ke
+                    # neural voices par IGNORE hota hai (measurement: -50%..+100%
+                    # range me RMS spread sirf 1.06). Isliye samples par asli
+                    # gain lagana padta hai — tanh soft-clip ke saath.
+                    from voice import _boost_audio_gain, _apply_mixer_gain
+                    _apply_mixer_gain()
+                    data = _boost_audio_gain(buf.getvalue())
+                    buf = io.BytesIO(data)
+                    buf.name = "jarvis_stream.wav" if data[:4] == b"RIFF" else "jarvis_stream.mp3"
                     pygame.mixer.music.load(buf)
                     pygame.mixer.music.play()
+                    played_any = True
 
                     while pygame.mixer.music.get_busy() and not self._stop_event.is_set():
                         time.sleep(0.02)
@@ -171,15 +184,19 @@ class StreamingAudioEngine:
                     print(f"[streaming_audio_engine] Playback error: {e}")
                     break
         finally:
+            # ALWAYS close mic stream and ALWAYS unblock the mic, no matter what
             if mic_stream:
                 try:
                     mic_stream.stop()
                     mic_stream.close()
                 except Exception:
                     pass
+            self._is_speaking = False
+            _voice_speaking_end()  # Re-open mic (with 80ms echo tail guard)
 
-        self._is_speaking = False
-        _voice_speaking_end()  # Re-open mic (with 300ms echo tail guard)
+        if not played_any and not interrupted and not self._stop_event.is_set():
+            raise RuntimeError("edge-tts produced no playable audio")
+
         return self._stop_event.is_set() or interrupted
 
     def stop_immediately(self):
@@ -202,19 +219,36 @@ class StreamingAudioEngine:
         asyncio.set_event_loop(loop)
 
         async def _synth_all():
+            from voice import _tts_volume_str
+            _vol = _tts_volume_str()
+            voices = []
+            primary = getattr(config, "ONLINE_VOICE", "en-IN-NeerjaExpressiveNeural")
+            voices.append(primary)
+            for v in getattr(config, "EDGE_VOICE_FALLBACKS", []):
+                if v and v not in voices:
+                    voices.append(v)
+
             for chunk in chunks:
                 if self._stop_event.is_set():
                     break
                 buf = io.BytesIO()
-                try:
-                    communicate = edge_tts.Communicate(chunk, config.ONLINE_VOICE, rate=rate, pitch=pitch)
-                    async for part in communicate.stream():
-                        if part["type"] == "audio":
-                            buf.write(part["data"])
+                synthesized = False
+                for voice_name in voices:
+                    buf = io.BytesIO()
+                    try:
+                        communicate = edge_tts.Communicate(chunk, voice_name, rate=rate, pitch=pitch, volume=_vol)
+                        async for part in communicate.stream():
+                            if part["type"] == "audio":
+                                buf.write(part["data"])
+                        if buf.tell() > 0:
+                            synthesized = True
+                            break
+                    except Exception as e:
+                        print(f"[streaming_audio_engine] Synth chunk error ({voice_name}): {e}")
+                if synthesized:
+                    buf.name = "jarvis_stream.mp3"
                     buf.seek(0)
                     out_queue.put(buf)
-                except Exception as e:
-                    print(f"[streaming_audio_engine] Synth chunk error: {e}")
 
             out_queue.put(None)  # Sentinel
 
