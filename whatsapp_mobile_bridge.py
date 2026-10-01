@@ -30,6 +30,10 @@ import datetime
 import pyautogui
 
 import remote_boot_wol
+try:
+    import config
+except ImportError:
+    config = None
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "whatsapp_bridge_config.json")
 CAPTURES_DIR = os.path.join(os.path.dirname(__file__), "data", "whatsapp_captures")
