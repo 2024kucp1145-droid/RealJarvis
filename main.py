@@ -52,11 +52,33 @@ import auth
 from gui import JarvisGUI
 from command_data import find_command
 from ai_brain import AIBrain
-from eye_control import EyeCursorController
 from file_intake import FileIntake
-from screen_monitor import ScreenMonitor
-from chat_gui import JarvisChatGUI
-from web_control import execute_web_action, run_autonomous_web_task, extract_screen_info, stop_autonomous_agent
+
+# Optional modules — Jarvis chalti rahegi agar ye na ho
+try:
+    from eye_control import EyeCursorController
+except Exception as _e:
+    print(f"[WARN] eye_control load nahi hua: {_e}")
+    EyeCursorController = None
+
+try:
+    from screen_monitor import ScreenMonitor
+except Exception as _e:
+    print(f"[WARN] screen_monitor load nahi hua: {_e}")
+    ScreenMonitor = None
+
+try:
+    from chat_gui import JarvisChatGUI
+except Exception as _e:
+    print(f"[WARN] chat_gui load nahi hua: {_e}")
+    JarvisChatGUI = None
+
+try:
+    from web_control import execute_web_action, run_autonomous_web_task, extract_screen_info, stop_autonomous_agent
+except Exception as _e:
+    print(f"[WARN] web_control load nahi hua: {_e}")
+    execute_web_action = run_autonomous_web_task = extract_screen_info = stop_autonomous_agent = None
+
 import self_modify
 import memory
 import reminders
@@ -65,19 +87,84 @@ import desktop_context
 import ui_controller
 import activity_tracker
 import platform_actions
-import proactive_guardian
-import hardware_sentry
-import health_focus_coach
-import download_janitor
-import email_sentry
-import workspace_harmonizer
-import web_workflow_assistant
-import project_auto_doctor
-import desktop_janitor
-import autonomous_evolution
-import whatsapp_mobile_bridge
-import self_evolution_engine
-import morning_briefing_sentry
+
+try:
+    import proactive_guardian
+except Exception as _e:
+    print(f"[WARN] proactive_guardian: {_e}")
+    proactive_guardian = None
+
+try:
+    import hardware_sentry
+except Exception as _e:
+    print(f"[WARN] hardware_sentry: {_e}")
+    hardware_sentry = None
+
+try:
+    import health_focus_coach
+except Exception as _e:
+    print(f"[WARN] health_focus_coach: {_e}")
+    health_focus_coach = None
+
+try:
+    import download_janitor
+except Exception as _e:
+    print(f"[WARN] download_janitor: {_e}")
+    download_janitor = None
+
+try:
+    import email_sentry
+except Exception as _e:
+    print(f"[WARN] email_sentry: {_e}")
+    email_sentry = None
+
+try:
+    import workspace_harmonizer
+except Exception as _e:
+    print(f"[WARN] workspace_harmonizer: {_e}")
+    workspace_harmonizer = None
+
+try:
+    import web_workflow_assistant
+except Exception as _e:
+    print(f"[WARN] web_workflow_assistant: {_e}")
+    web_workflow_assistant = None
+
+try:
+    import project_auto_doctor
+except Exception as _e:
+    print(f"[WARN] project_auto_doctor: {_e}")
+    project_auto_doctor = None
+
+try:
+    import desktop_janitor
+except Exception as _e:
+    print(f"[WARN] desktop_janitor: {_e}")
+    desktop_janitor = None
+
+try:
+    import autonomous_evolution
+except Exception as _e:
+    print(f"[WARN] autonomous_evolution: {_e}")
+    autonomous_evolution = None
+
+try:
+    import whatsapp_mobile_bridge
+except Exception as _e:
+    print(f"[WARN] whatsapp_mobile_bridge: {_e}")
+    whatsapp_mobile_bridge = None
+
+try:
+    import self_evolution_engine
+except Exception as _e:
+    print(f"[WARN] self_evolution_engine: {_e}")
+    self_evolution_engine = None
+
+try:
+    import morning_briefing_sentry
+except Exception as _e:
+    print(f"[WARN] morning_briefing_sentry: {_e}")
+    morning_briefing_sentry = None
 
 from commands import system_commands, browser_commands, file_commands, email_commands
 from custom import custom_functions
