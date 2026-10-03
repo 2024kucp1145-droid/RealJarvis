@@ -155,7 +155,7 @@ class HardwareSentry:
             except Exception as e:
                 print(f"[hardware_sentry loop error: {e}]")
 
-            time.sleep(0.8)
+            time.sleep(5.0)  # 0.8s se 5s — battery/CPU itni jaldi nahi badlate
 
     def _check_battery(self):
         status = self._get_battery_status()

@@ -394,7 +394,8 @@ class Jarvis:
         """Background thread me chalta hai - GUI ke mainloop se alag."""
         memory.init_db()
         self._start_reminder_checker()
-        self.screen_monitor.start()  # Background screen monitoring shuru
+        # Screen monitor ON-DEMAND — sirf tab start hogi jab user screen command use kare
+        # (Auto-start remove kiya: 2.5s pe screenshots RAM waste karte the)
         self.wake_listener.start()
 
         # App start hote hi seedha login/password flow shuru karo - wake
@@ -982,14 +983,17 @@ class Jarvis:
             if platform_actions.route_platform_action(text, self.voice, self.ai):
                 return True
 
-            # ---- ALWAYS-ON VISION: Sirf tab trigger hoga jab user EXPLICITLY screen/display ke baare mein pooche ----
-            if self.screen_monitor.is_running() and self.screen_monitor.get_latest():
-                explicit_visual_keywords = [
-                    "screen par kya hai", "screen dekho", "meri screen dekho",
-                    "screen padho", "display par kya hai", "screen samjhao",
-                    "screen pe kya khula hai", "what is on my screen", "look at my screen"
-                ]
-                if any(kw in text.lower() for kw in explicit_visual_keywords):
+            # ---- ON-DEMAND VISION: Sirf tab start hogi jab user screen command pooche ----
+            explicit_visual_keywords = [
+                "screen par kya hai", "screen dekho", "meri screen dekho",
+                "screen padho", "display par kya hai", "screen samjhao",
+                "screen pe kya khula hai", "what is on my screen", "look at my screen"
+            ]
+            if any(kw in text.lower() for kw in explicit_visual_keywords):
+                if not self.screen_monitor.is_running():
+                    self.screen_monitor.start()  # Lazy start — pehli baar zaroorat par
+                    import time; time.sleep(2.6)  # Pehla screenshot lene do
+                if self.screen_monitor.get_latest():
                     return self.handle_monitor_vision(text)
 
             if self_evolution_engine.evolution_engine.triage_missing_skill(text):

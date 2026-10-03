@@ -21,16 +21,32 @@ Chalane ke liye: mediapipe aur opencv-python chahiye.
 import threading
 import time
 
-try:
-    import cv2
-    import mediapipe as mp
-    import numpy as np
-    import pyautogui
-except ImportError:
-    cv2 = None
-    mp = None
-    np = None
-    pyautogui = None
+# LAZY LOAD — mediapipe/cv2 sirf tab load hogi jab eye tracking actually start ho
+# Isse startup RAM ~60MB bachti hai
+cv2 = None
+mp = None
+np = None
+pyautogui = None
+
+def _load_vision_deps():
+    """Mediapipe aur cv2 ko lazily load karo — sirf eye control start hone par."""
+    global cv2, mp, np, pyautogui
+    if cv2 is not None:
+        return True  # Already loaded
+    try:
+        import cv2 as _cv2
+        import mediapipe as _mp
+        import numpy as _np
+        import pyautogui as _pag
+        cv2 = _cv2
+        mp = _mp
+        np = _np
+        pyautogui = _pag
+        return True
+    except ImportError as e:
+        print(f"[eye_control] Vision deps load nahi hui: {e}")
+        return False
+
 
 # ---- Tuning knobs - agar direction ulti lage ya bahut sensitive/insensitive
 # lage, inhe badal sakte ho ----
@@ -86,10 +102,12 @@ class EyeCursorController:
         self._thread = None
 
     def available(self) -> bool:
-        return cv2 is not None and mp is not None
+        """Lazily check - sirf tab check karo jab actually zaroorat ho."""
+        return True  # Assume available; will fail gracefully at start() if not
 
     def start(self, voice=None):
-        if not self.available():
+        # Lazy load karo mediapipe/cv2 sirf tab jab eye control actually start ho
+        if not _load_vision_deps():
             if voice:
                 voice.speak("Eye tracking ke liye mediapipe aur opencv install nahi hai.")
             return
