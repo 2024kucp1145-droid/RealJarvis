@@ -153,7 +153,12 @@ Restart and the command works immediately. That's it.
 
 | File | What it does |
 |---|---|
-| `main.py` | Entry point, orchestrates everything |
+| `main.py` | Entry point (~90 lines) — daemon mode check + app startup |
+| `jarvis_handlers/` | Saari behaviour, 17 focused modules me (niche detail niche jagah) |
+| `jarvis_handlers/router.py` | `handle_text()` — pura intent pipeline, order ek jagah |
+| `jarvis_handlers/followups.py` | Pending prompts ("haan/na/organize") ke declarative rules |
+| `jarvis_handlers/keyword_routes.py` | Keyword-triggered features ki route table |
+| `jarvis_handlers/sentries.py` | Background sentries ka start/stop registry |
 | `ai_brain.py` | Core AI response engine |
 | `agentic_cot_brain.py` | Chain-of-Thought ReAct reasoning |
 | `memory.py` | Vector memory engine (SQLite + embeddings) |
@@ -168,6 +173,12 @@ Restart and the command works immediately. That's it.
 | `command_data.py` | All voice command definitions |
 | `config.py` | All your personal settings |
 | `custom_skills/` | Self-written skills land here |
+
+**Naya command ya feature kaise add kare:**
+- Fixed command → `command_data.py` me ek dict entry (koi Python code nahi)
+- Keyword feature → `keyword_routes.py` me ek `Route(...)` row + handler method
+- Permission prompt → `followups.py` me ek `Rule(...)` entry
+- Background monitor → `sentries.py` me ek `SentrySpec(...)` entry
 
 ---
 
@@ -219,8 +230,9 @@ Ye cheezein harden kar di gayi hain — purane behavior me real vulnerabilities 
    python config.py set-password
    ```
 
-**Regression tests:** `tests/test_critical_fixes.py` (38 tests) in sab fixes ko lock karta hai —
-bypass attempts ab CI me fail honge.
+**Regression tests:** `tests/test_critical_fixes.py` (security fixes) aur
+`tests/test_handler_refactor.py` (routing order, follow-up rules, sentry registry)
+in sab ko lock karte hain — bypass attempts aur routing regressions ab CI me fail honge.
 ```bash
 venv\Scripts\python.exe -m pytest tests -v
 ```
