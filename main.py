@@ -622,7 +622,7 @@ class Jarvis:
                 dots_browser_agent.dots_agent.voice = self.voice
                 dots_browser_agent.dots_agent.ai = self.ai
                 dots_browser_agent.dots_agent.gui = self.gui
-                dots_browser_agent.dots_agent.launch_dots_ui()
+                dots_browser_agent.dots_agent.launch_browser("https://www.google.com")
                 return True
         except Exception as e:
             print(f"[dots_agent priority error: {e}]")
@@ -1086,16 +1086,11 @@ class Jarvis:
             dots_browser_agent.dots_agent.ai = self.ai
             dots_browser_agent.dots_agent.gui = self.gui
             if action == "launch_dots_ui":
-                dots_browser_agent.dots_agent.launch_dots_ui()
+                dots_browser_agent.dots_agent.launch_browser("https://www.google.com")
             elif action == "stealth_search":
-                import urllib.parse
                 param_name = data.get("param")
                 query = self._extract_param(text, matched_trigger) if param_name else text
-                res = dots_browser_agent.dots_agent.stealth_fetch_page(f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}")
-                if res.get("success"):
-                    self.speak(f"Stealth search complete ho gaya. Web page title hai: {res.get('title', '')}")
-                else:
-                    self.speak("Stealth search karne mein issue aaya.")
+                dots_browser_agent.dots_agent.search(query)
             return True
 
         executor_module = EXECUTORS.get(ctype)

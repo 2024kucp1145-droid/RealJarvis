@@ -6,10 +6,10 @@ Stealth Web Browsing & Anti-Bot AI Browser Agent Integration for Real Jarvis.
 Powered by feder-cr/dots and invisible-playwright.
 
 Features:
-1. Unblockable stealth browser automation using patched Firefox engine.
-2. Two-pane Live Agent Web UI launch (uvx dots ui).
-3. Organic human-like cursor control and fingerprint spoofing.
-4. Seamless integration with Jarvis Voice, Universal Web Operator, and AI Brain.
+1. Native, unblockable stealth browser launch (Patched C++ Firefox engine).
+2. Works directly without needing an OpenRouter API key or local port servers.
+3. Automatically powers normal commands: browser kholo, google search, website navigation.
+4. Seamless fallback to default system browser if required.
 """
 
 import os
@@ -25,93 +25,90 @@ import config
 
 try:
     import invisible_playwright
-    from invisible_playwright import InvisiblePlaywright
+    from invisible_playwright import InvisiblePlaywright, ensure_binary
     _INVISIBLE_PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     invisible_playwright = None
     InvisiblePlaywright = None
+    ensure_binary = None
     _INVISIBLE_PLAYWRIGHT_AVAILABLE = False
 
 
 class DotsBrowserAgent:
-    """Manages stealth anti-bot browsing tasks and the Dots interface."""
+    """Manages stealth anti-bot browsing tasks and browser windows."""
 
     def __init__(self, voice=None, ai=None, gui=None):
         self.voice = voice
         self.ai = ai
         self.gui = gui
-        self._dots_proc: Optional[subprocess.Popen] = None
+        self._bin_path: Optional[str] = None
         self._lock = threading.Lock()
 
     def is_available(self) -> bool:
         """Checks if invisible-playwright is available in the environment."""
         return _INVISIBLE_PLAYWRIGHT_AVAILABLE
 
-    def launch_dots_ui(self, port: Optional[int] = None) -> bool:
-        """
-        Launches the Dots live two-pane stealth browser interface in background.
-        Opens http://127.0.0.1:<port> in default browser.
-        """
-        target_port = port or getattr(config, "DOTS_PORT", 8766)
-        target_url = f"http://127.0.0.1:{target_port}"
-
-        with self._lock:
-            # Check if already running
-            if self._dots_proc and self._dots_proc.poll() is None:
-                print(f"[dots_agent] Dots UI already running on {target_url}")
-                webbrowser.open(target_url)
-                if self.voice:
-                    self.voice.speak("Dots browser agent pehle se running hai. Browser tab open kar diya hai boss!", emotion="excited")
-                return True
-
-            print(f"[dots_agent] Launching Dots Stealth Browser UI on port {target_port}...")
-            if self.voice:
-                self.voice.speak("Dots stealth browser agent start ho raha hai...", emotion="excited")
-
-            openrouter_key = getattr(config, "OPENROUTER_API_KEY", "") or os.environ.get("OPENROUTER_API_KEY", "")
-            
-            # Construct launch command via uvx
-            cmd = ["uvx", "dots", "ui", "--port", str(target_port), "--headed"]
-            if openrouter_key:
-                cmd.extend(["--openrouter-key", openrouter_key])
-
+    def get_binary_path(self) -> Optional[str]:
+        """Resolves the patched anti-detect Firefox executable path."""
+        if self._bin_path and os.path.exists(self._bin_path):
+            return self._bin_path
+        if ensure_binary:
             try:
-                # Launch non-blocking background process
-                self._dots_proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-                )
-                
-                time.sleep(2.0)
-                webbrowser.open(target_url)
-
-                msg = "Dots stealth browser live interface start ho gaya hai boss. Screen par live browsing ready hai!"
-                print(f"[dots_agent] {msg}")
-                if self.voice:
-                    self.voice.speak(msg, emotion="happy")
-                return True
-
+                self._bin_path = ensure_binary()
+                return self._bin_path
             except Exception as e:
-                err_msg = f"Dots UI launch nahi ho paaya: {e}"
-                print(f"[dots_agent error: {e}]")
-                if self.voice:
-                    self.voice.speak("Dots browser start karne me error aaya.", emotion="concerned")
-                return False
+                print(f"[dots_agent get_binary_path error: {e}]")
+        return None
+
+    def launch_browser(self, url: str = "https://www.google.com") -> bool:
+        """
+        Launches the native stealth anti-detect Firefox browser directly.
+        Opens the browser window cleanly on screen with zero port errors.
+        """
+        bin_path = self.get_binary_path()
+        target_url = url if url.startswith("http") else f"https://{url}"
+
+        if not bin_path or not os.path.exists(bin_path):
+            print(f"[dots_agent] Stealth binary not found, using default browser for {target_url}")
+            webbrowser.open(target_url)
+            if self.voice:
+                self.voice.speak("Browser khol diya hai boss.", emotion="happy")
+            return True
+
+        try:
+            print(f"[dots_agent] Launching native stealth anti-bot browser: {target_url}")
+            subprocess.Popen([bin_path, target_url])
+            if self.voice:
+                self.voice.speak("Anti-bot browser open kar diya hai boss.", emotion="happy")
+            return True
+        except Exception as e:
+            print(f"[dots_agent direct launch error: {e}], falling back to system browser")
+            webbrowser.open(target_url)
+            if self.voice:
+                self.voice.speak("Browser khol diya hai.", emotion="calm")
+            return True
+
+    def search(self, query: str) -> bool:
+        """Searches Google directly inside the stealth browser."""
+        import urllib.parse
+        encoded = urllib.parse.quote_plus(query)
+        search_url = f"https://www.google.com/search?q={encoded}"
+        return self.launch_browser(search_url)
+
+    def open_website(self, site: str) -> bool:
+        """Opens any website URL inside the stealth browser."""
+        url = site if site.startswith("http") else f"https://{site}"
+        return self.launch_browser(url)
 
     def stealth_fetch_page(self, url: str, wait_seconds: float = 3.0) -> Dict[str, Any]:
         """
-        Loads a target webpage using the stealth patched Firefox engine,
-        bypassing bot detection, and extracts page title and main text content.
+        Background autonomous page scraper: loads page with stealth engine
+        and extracts title and main text content without bot challenges.
         """
-        if not self.is_available():
+        if not self.is_available() or InvisiblePlaywright is None:
             return {"success": False, "error": "invisible-playwright not installed in venv"}
 
-        print(f"[dots_agent] Stealth navigating to: {url}")
-        if self.voice:
-            self.voice.speak("Stealth browser se target page open kar rahi hoon...", emotion="calm")
-
+        print(f"[dots_agent] Background stealth navigating to: {url}")
         try:
             with InvisiblePlaywright(headless=False, humanize=True) as browser:
                 page = browser.new_page()
@@ -119,7 +116,6 @@ class DotsBrowserAgent:
                 time.sleep(wait_seconds)
 
                 title = page.title()
-                # Extract primary text content
                 content_text = page.inner_text("body")[:3000]
 
                 return {
@@ -143,15 +139,20 @@ class DotsBrowserAgent:
 
         print(f"[dots_agent] Stealth price compare for '{product_name}'...")
         if self.voice:
-            self.voice.speak(f"Anti-bot stealth mode mein {product_name} ke prices check kar rahi hoon...", emotion="excited")
+            self.voice.speak(f"{product_name} ke prices check kar rahi hoon...", emotion="excited")
 
-        # Open both in browser for the user
-        try:
+        bin_path = self.get_binary_path()
+        if bin_path and os.path.exists(bin_path):
+            try:
+                subprocess.Popen([bin_path, fk_url])
+                time.sleep(0.5)
+                subprocess.Popen([bin_path, amz_url])
+            except Exception:
+                webbrowser.open_new_tab(fk_url)
+                webbrowser.open_new_tab(amz_url)
+        else:
             webbrowser.open_new_tab(fk_url)
-            time.sleep(0.5)
             webbrowser.open_new_tab(amz_url)
-        except Exception:
-            pass
 
         return {
             "success": True,

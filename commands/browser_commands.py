@@ -20,8 +20,13 @@ def _need_internet(voice) -> bool:
 def open_browser(voice, **kw):
     if not _need_internet(voice):
         return
-    webbrowser.open("https://www.google.com")
-    voice.speak("Browser khol diya.")
+    try:
+        import dots_browser_agent
+        dots_browser_agent.dots_agent.voice = voice
+        dots_browser_agent.dots_agent.launch_browser("https://www.google.com")
+    except Exception:
+        webbrowser.open("https://www.google.com")
+        voice.speak("Browser khol diya.")
 
 
 def open_website(voice, site="", **kw):
@@ -31,8 +36,13 @@ def open_website(voice, site="", **kw):
         voice.speak("Konsi website kholu, batayein?")
         return
     url = site if site.startswith("http") else f"https://{site}"
-    webbrowser.open(url)
-    voice.speak(f"{site} khol rahi hoon.")
+    try:
+        import dots_browser_agent
+        dots_browser_agent.dots_agent.voice = voice
+        dots_browser_agent.dots_agent.open_website(url)
+    except Exception:
+        webbrowser.open(url)
+        voice.speak(f"{site} khol rahi hoon.")
 
 
 def search_google(voice, query="", **kw):
@@ -41,8 +51,13 @@ def search_google(voice, query="", **kw):
     if not query:
         voice.speak("Kya search karu?")
         return
-    webbrowser.open(f"https://www.google.com/search?q={quote(query)}")
-    voice.speak(f"{query} search kar rahi hoon.")
+    try:
+        import dots_browser_agent
+        dots_browser_agent.dots_agent.voice = voice
+        dots_browser_agent.dots_agent.search(query)
+    except Exception:
+        webbrowser.open(f"https://www.google.com/search?q={quote(query)}")
+        voice.speak(f"{query} search kar rahi hoon.")
 
 
 def play_youtube(voice, song="", **kw):
