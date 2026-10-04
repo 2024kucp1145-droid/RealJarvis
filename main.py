@@ -613,6 +613,19 @@ class Jarvis:
                 return True
         except Exception as e:
             print(f"[game_synthesizer priority error: {e}]")
+
+        # ---- DOTS STEALTH BROWSER AGENT PRIORITY TRIGGER ----
+        try:
+            clean_lower = text.strip().lower()
+            if any(w in clean_lower for w in ("dots chalu", "dots kholo", "stealth browser", "stealth agent", "anti bot browser", "dots agent")):
+                import dots_browser_agent
+                dots_browser_agent.dots_agent.voice = self.voice
+                dots_browser_agent.dots_agent.ai = self.ai
+                dots_browser_agent.dots_agent.gui = self.gui
+                dots_browser_agent.dots_agent.launch_dots_ui()
+                return True
+        except Exception as e:
+            print(f"[dots_agent priority error: {e}]")
         
         cmd_id, data, matched_trigger = find_command(text)
         # ... baaki same code ...
@@ -1066,6 +1079,24 @@ class Jarvis:
                 reply = proactive_guardian.guardian.replace_at_cursor()
                 self.speak(reply, emotion="happy")
                 return True
+
+        if ctype == "dots":
+            import dots_browser_agent
+            dots_browser_agent.dots_agent.voice = self.voice
+            dots_browser_agent.dots_agent.ai = self.ai
+            dots_browser_agent.dots_agent.gui = self.gui
+            if action == "launch_dots_ui":
+                dots_browser_agent.dots_agent.launch_dots_ui()
+            elif action == "stealth_search":
+                import urllib.parse
+                param_name = data.get("param")
+                query = self._extract_param(text, matched_trigger) if param_name else text
+                res = dots_browser_agent.dots_agent.stealth_fetch_page(f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}")
+                if res.get("success"):
+                    self.speak(f"Stealth search complete ho gaya. Web page title hai: {res.get('title', '')}")
+                else:
+                    self.speak("Stealth search karne mein issue aaya.")
+            return True
 
         executor_module = EXECUTORS.get(ctype)
         if executor_module and hasattr(executor_module, action):

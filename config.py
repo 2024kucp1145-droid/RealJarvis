@@ -343,6 +343,14 @@ DAEMON_PORT = int(os.environ.get("DAEMON_PORT", "8765"))
 # aur bina verify webhook requests reject ho jaati hain.
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
 
+# ============================================================
+# DOTS STEALTH BROWSER AGENT (Anti-Bot / Invisible Playwright)
+# ============================================================
+DOTS_ENABLED = True
+DOTS_PORT = int(os.environ.get("DOTS_PORT", "8766"))
+DOTS_HOST = "127.0.0.1"
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+
 
 
 

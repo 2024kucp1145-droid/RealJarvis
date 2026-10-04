@@ -56,6 +56,18 @@ class UniversalWebOperator:
         if self.gui and hasattr(self.gui, "show_message"):
             self.gui.show_message(f"🌐 Web Operator: {goal_text[:35]}...", ms=3000)
 
+        # 0. Stealth Dots Browser Intent
+        if any(k in clean_goal for k in ["dots", "stealth", "anti bot", "unblocked"]):
+            try:
+                import dots_browser_agent
+                dots_browser_agent.dots_agent.voice = self.voice
+                dots_browser_agent.dots_agent.ai = self.ai
+                dots_browser_agent.dots_agent.gui = self.gui
+                dots_browser_agent.dots_agent.launch_dots_ui()
+                return {"success": True, "message": "Dots stealth browser launch ho gaya."}
+            except Exception as e:
+                print(f"[dots_agent error: {e}]")
+
         # 1. Price Comparison Intent
         if any(k in clean_goal for k in ["compare", "price", "sasta", "cheapest", "flipkart", "amazon", "kitne ka"]):
             product = self._extract_product_name(goal_text)

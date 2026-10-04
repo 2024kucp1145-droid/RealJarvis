@@ -272,10 +272,14 @@ COMMANDS = {
                     "kaunsa app khula hai", "kitni windows khuli hain", "abhi kis par kaam kar raha hoon",
                     "abhi kis par kaam kar rahi hoon"]},
 
-    # ---------------- BROWSER / WEB / YOUTUBE ----------------
+    # ---------------- BROWSER / WEB / YOUTUBE / DOTS ----------------
     "open_browser": {"type": "browser", "action": "open_browser", "trigger": ["browser kholo"]},
     "open_website": {"type": "browser", "action": "open_website", "param": "site", "trigger": ["website kholo", "site kholo"]},
     "search_google": {"type": "browser", "action": "search_google", "param": "query", "trigger": ["google pe search karo", "search karo"]},
+    "launch_dots_ui": {"type": "dots", "action": "launch_dots_ui",
+        "trigger": ["dots chalu karo", "dots kholo", "stealth browser kholo", "stealth agent chalu karo", "dots browser open karo", "anti bot browser chalao"]},
+    "stealth_search": {"type": "dots", "action": "stealth_search", "param": "query",
+        "trigger": ["stealth search karo", "bina block hue search karo", "stealth browse karo"]},
     "leetcode_search": {"type": "browser", "action": "leetcode_search", "param": "query",
         "trigger": ["leetcode pe search karo", "leetcode problem search karo", "leetcode par dhoondo"]},
     "write_code_for_screen": {"type": "vision", "action": "write_code_for_screen",
