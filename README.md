@@ -1,6 +1,6 @@
 ﻿# RealJarvis v2.0
 
-I'm a second-year CS student at IIIT Kota. Last semester I kept getting annoyed that every "AI assistant" either needed internet for everything or was basically just a glorified search wrapper. So I built my own.
+I'm a third-year CS student at IIIT Kota. Last semester I kept getting annoyed that every "AI assistant" either needed internet for everything or was basically just a glorified search wrapper. So I built my own.
 
 This is RealJarvis — a personal autonomous agent that runs 24/7 on my Windows laptop. It wakes up when I call its name, understands what I'm doing on screen, remembers our past conversations, controls my system, and can even be commanded over WhatsApp from my phone. It's not perfect, but it's real and it runs.
 
